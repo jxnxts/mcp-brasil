@@ -453,6 +453,50 @@ class TestLegislaturaAtual:
         assert "não disponível" in result
 
 
+class TestPartidosSenado:
+    @pytest.mark.asyncio
+    async def test_formats_table(self) -> None:
+        mock_data = [
+            SenadorResumo(codigo="1", nome="Sen A", partido="PT", uf="SP"),
+            SenadorResumo(codigo="2", nome="Sen B", partido="PT", uf="RJ"),
+            SenadorResumo(codigo="3", nome="Sen C", partido="PL", uf="MG"),
+        ]
+        with patch(f"{MODULE}.listar_senadores", new_callable=AsyncMock, return_value=mock_data):
+            result = await tools.partidos_senado()
+        assert "PT" in result
+        assert "PL" in result
+        assert "2 partidos" in result
+        assert "3 senadores" in result
+
+    @pytest.mark.asyncio
+    async def test_empty(self) -> None:
+        with patch(f"{MODULE}.listar_senadores", new_callable=AsyncMock, return_value=[]):
+            result = await tools.partidos_senado()
+        assert "Nenhum senador" in result
+
+
+class TestUfsSenado:
+    @pytest.mark.asyncio
+    async def test_formats_table(self) -> None:
+        mock_data = [
+            SenadorResumo(codigo="1", nome="Sen A", partido="PT", uf="SP"),
+            SenadorResumo(codigo="2", nome="Sen B", partido="PL", uf="SP"),
+            SenadorResumo(codigo="3", nome="Sen C", partido="PT", uf="RJ"),
+        ]
+        with patch(f"{MODULE}.listar_senadores", new_callable=AsyncMock, return_value=mock_data):
+            result = await tools.ufs_senado()
+        assert "SP" in result
+        assert "RJ" in result
+        assert "2 UFs" in result
+        assert "3 senadores" in result
+
+    @pytest.mark.asyncio
+    async def test_empty(self) -> None:
+        with patch(f"{MODULE}.listar_senadores", new_callable=AsyncMock, return_value=[]):
+            result = await tools.ufs_senado()
+        assert "Nenhum senador" in result
+
+
 class TestTiposMateria:
     @pytest.mark.asyncio
     async def test_formats_table(self) -> None:

@@ -566,6 +566,50 @@ async def legislatura_atual() -> str:
     )
 
 
+async def partidos_senado() -> str:
+    """Lista partidos com representação no Senado Federal.
+
+    Retorna os partidos ordenados pelo número de senadores em exercício.
+
+    Returns:
+        Tabela com partidos e quantidade de senadores.
+    """
+    senadores = await client.listar_senadores()
+    if not senadores:
+        return "Nenhum senador encontrado."
+
+    contagem: dict[str, int] = {}
+    for s in senadores:
+        partido = s.partido or "S/Partido"
+        contagem[partido] = contagem.get(partido, 0) + 1
+
+    rows = [(partido, str(qtd)) for partido, qtd in sorted(contagem.items(), key=lambda x: -x[1])]
+    header = f"Partidos no Senado ({len(contagem)} partidos, {len(senadores)} senadores):\n\n"
+    return header + markdown_table(["Partido", "Senadores"], rows)
+
+
+async def ufs_senado() -> str:
+    """Lista unidades federativas com representação no Senado Federal.
+
+    Retorna os estados ordenados pela sigla com o número de senadores em exercício.
+
+    Returns:
+        Tabela com UFs e quantidade de senadores.
+    """
+    senadores = await client.listar_senadores()
+    if not senadores:
+        return "Nenhum senador encontrado."
+
+    contagem: dict[str, int] = {}
+    for s in senadores:
+        uf = s.uf or "N/A"
+        contagem[uf] = contagem.get(uf, 0) + 1
+
+    rows = [(uf, str(qtd)) for uf, qtd in sorted(contagem.items())]
+    header = f"UFs no Senado ({len(contagem)} UFs, {len(senadores)} senadores):\n\n"
+    return header + markdown_table(["UF", "Senadores"], rows)
+
+
 async def tipos_materia() -> str:
     """Lista os tipos de matéria legislativa do Senado.
 

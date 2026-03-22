@@ -21,7 +21,7 @@ CLIENT_MODULE = "mcp_brasil.senado.client"
 
 class TestToolsRegistered:
     @pytest.mark.asyncio
-    async def test_all_20_tools_registered(self) -> None:
+    async def test_all_22_tools_registered(self) -> None:
         async with Client(mcp) as c:
             tool_list = await c.list_tools()
             names = {t.name for t in tool_list}
@@ -49,9 +49,11 @@ class TestToolsRegistered:
                 # Agenda (2)
                 "agenda_plenario",
                 "agenda_comissoes",
-                # Auxiliares (2)
+                # Auxiliares (4)
                 "legislatura_atual",
                 "tipos_materia",
+                "partidos_senado",
+                "ufs_senado",
             }
             assert expected.issubset(names), f"Missing: {expected - names}"
 

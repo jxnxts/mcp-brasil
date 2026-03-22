@@ -22,8 +22,10 @@ from .tools import (
     listar_senadores,
     listar_votacoes,
     membros_comissao,
+    partidos_senado,
     reunioes_comissao,
     textos_materia,
+    ufs_senado,
     votacoes_recentes,
     votacoes_senador,
     votos_materia,
@@ -62,9 +64,11 @@ mcp.tool(reunioes_comissao)
 mcp.tool(agenda_plenario)
 mcp.tool(agenda_comissoes)
 
-# Tools — Auxiliares (2)
+# Tools — Auxiliares (4)
 mcp.tool(legislatura_atual)
 mcp.tool(tipos_materia_tool)
+mcp.tool(partidos_senado)
+mcp.tool(ufs_senado)
 
 # Resources (URIs without namespace prefix — mount adds "senado/" automatically)
 mcp.resource("data://tipos-materia", mime_type="application/json")(tipos_materia)
