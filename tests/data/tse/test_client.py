@@ -736,6 +736,10 @@ class TestListarMunicipiosEleitorais:
 
 
 class TestResultadoMunicipio:
+    @pytest.fixture(autouse=True)
+    def _clear_name_cache(self) -> None:
+        client._name_cache.clear()
+
     @pytest.mark.asyncio
     @respx.mock
     async def test_2024_uses_u_json(self) -> None:

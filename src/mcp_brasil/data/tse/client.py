@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 _rate_limiter = RateLimiter(max_requests=30, period=60.0)
 
+# Cache de nomes de candidatos por (ano, cargo, uf, turno).
+# Dados eleitorais são históricos e não mudam, cache seguro por sessão.
+_name_cache: dict[tuple[int, str, str, int], dict[str, str]] = {}
+
 
 async def _get(url: str, params: dict[str, Any] | None = None) -> Any:
     """GET request with rate limiting for TSE API."""
@@ -556,19 +560,22 @@ async def _enrich_candidate_names(
 
     O formato -v.json (2022) não inclui nomes, apenas números.
     Busca o resultado estadual e mapeia número → nome.
+    Usa cache em _name_cache para evitar requests repetidos.
     """
-    estado = await resultado_simplificado(ano, cargo, uf, turno)
-    if estado is None:
-        return
+    cache_key = (ano, cargo, uf, turno)
+    if cache_key not in _name_cache:
+        estado = await resultado_simplificado(ano, cargo, uf, turno)
+        nomes: dict[str, str] = {}
+        if estado is not None:
+            for c in estado.candidatos:
+                if c.numero and c.nome:
+                    nomes[c.numero] = c.nome
+        _name_cache[cache_key] = nomes
 
-    nomes: dict[str, str] = {}
-    for c in estado.candidatos:
-        if c.numero and c.nome:
-            nomes[c.numero] = c.nome
-
+    nomes_cached = _name_cache[cache_key]
     for c in resultado.candidatos:
-        if c.nome is None and c.numero and c.numero in nomes:
-            c.nome = nomes[c.numero]
+        if c.nome is None and c.numero and c.numero in nomes_cached:
+            c.nome = nomes_cached[c.numero]
 
 
 async def resultado_municipio(
