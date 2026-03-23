@@ -9,9 +9,11 @@ This file only composes sub-servers. Zero business logic (ADR-001 rule #4).
 
 from fastmcp import FastMCP
 
+from .dadosabertos.server import mcp as dadosabertos_mcp
 from .pncp.server import mcp as pncp_mcp
 
 mcp = FastMCP("mcp-brasil-compras")
 
-# Mount sub-sources with namespace (tools prefixed: pncp_buscar_contratacoes, etc.)
+# Mount sub-sources with namespace
 mcp.mount(pncp_mcp, namespace="pncp")
+mcp.mount(dadosabertos_mcp, namespace="dadosabertos")
