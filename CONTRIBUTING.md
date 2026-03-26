@@ -5,7 +5,7 @@ Obrigado pelo interesse em contribuir!
 ## Getting Started
 
 ```bash
-git clone https://github.com/seu-usuario/mcp-brasil.git
+git clone https://github.com/jxnxts/mcp-brasil.git
 cd mcp-brasil
 make dev        # Instala dependências de dev
 make ci         # Roda lint + mypy + testes
@@ -24,11 +24,6 @@ src/mcp_brasil/
 └── agentes/            # Features de agentes inteligentes
     └── redator/        # Feature Redator Oficial
 ```
-
-Leia os ADRs em `plan/adrs/` antes de implementar:
-- **ADR-001** — Stack, package-by-feature, convenções
-- **ADR-002** — Auto-registry pattern (FeatureRegistry)
-- **ADR-003** — Padrão de agentes (Prompt + Resource + Tool)
 
 ## Como Adicionar uma Nova Feature
 
@@ -251,14 +246,3 @@ make build            # Build do pacote (sdist + wheel)
 - Descreva o que mudou e por quê no corpo do PR
 - Se adicionou feature nova, inclua testes (`test_tools.py`, `test_client.py`, `test_integration.py`)
 - Se encontrou débito técnico, registre em `TECH_DEBT.md`
-
-## Documentação de Referência
-
-- `plan/adrs/` — Decisões de arquitetura (ADR-001, ADR-002, ADR-003)
-- `plan/roadmap.md` — Roadmap técnico
-- `plan/poc-plan.md` — Plano da POC com inventário de APIs
-- `plan/mapa-agentes.md` — Mapa de agentes escaláveis
-- `plan/research/` — Mapeamento de APIs públicas brasileiras
-- `CLAUDE.md` — Instruções para Claude Code
-- `AGENTS.md` — Papéis de agentes (Tech Lead, Dev, QA)
-- `TECH_DEBT.md` — Registro de débitos técnicos
