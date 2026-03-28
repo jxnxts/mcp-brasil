@@ -174,10 +174,7 @@ async def listar_datasets_organizacao(
     lines.append(f"**{org.num_datasets} datasets publicados:**\n")
 
     if datasets:
-        rows = [
-            (d.nome, d.titulo or "N/A", str(d.num_recursos))
-            for d in datasets
-        ]
+        rows = [(d.nome, d.titulo or "N/A", str(d.num_recursos)) for d in datasets]
         lines.append(markdown_table(["Slug", "Título", "Arquivos"], rows))
     else:
         lines.append("Nenhum dataset encontrado.")
@@ -209,10 +206,7 @@ async def listar_datasets_grupo_seguranca(
     lines = [f"## {titulo}\n"]
     if datasets:
         lines.append(f"**{len(datasets)} datasets:**\n")
-        rows = [
-            (d.nome, d.titulo or "N/A", str(d.num_recursos))
-            for d in datasets
-        ]
+        rows = [(d.nome, d.titulo or "N/A", str(d.num_recursos)) for d in datasets]
         lines.append(markdown_table(["Slug", "Título", "Arquivos"], rows))
     else:
         lines.append("Nenhum dataset neste grupo.")

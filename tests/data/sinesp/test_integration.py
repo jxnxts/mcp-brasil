@@ -66,9 +66,7 @@ class TestToolExecution:
             return_value=(1, mock_data),
         ):
             async with Client(mcp) as c:
-                result = await c.call_tool(
-                    "buscar_datasets_mjsp", {"texto": "segurança"}
-                )
+                result = await c.call_tool("buscar_datasets_mjsp", {"texto": "segurança"})
                 assert "Ocorrências Criminais" in result.data
 
     @pytest.mark.asyncio

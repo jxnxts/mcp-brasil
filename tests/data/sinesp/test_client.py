@@ -50,7 +50,9 @@ class TestBuscarDatasets:
                                 "notes": "Dados SINESP",
                                 "organization": {"name": "senasp", "title": "SENASP"},
                                 "tags": [{"name": "seguranca", "display_name": "segurança"}],
-                                "resources": [{"id": "r1", "name": "dados.xlsx", "format": "XLSX"}],
+                                "resources": [
+                                    {"id": "r1", "name": "dados.xlsx", "format": "XLSX"}
+                                ],
                             }
                         ],
                     },
@@ -103,9 +105,7 @@ class TestDetalharDataset:
     @pytest.mark.asyncio
     @respx.mock
     async def test_not_found(self) -> None:
-        respx.get(PACKAGE_SHOW_URL).mock(
-            return_value=httpx.Response(200, json={"success": False})
-        )
+        respx.get(PACKAGE_SHOW_URL).mock(return_value=httpx.Response(200, json={"success": False}))
         dataset = await client.detalhar_dataset("nao-existe")
         assert dataset is None
 
@@ -203,9 +203,7 @@ class TestListarDatasetsGrupo:
     @pytest.mark.asyncio
     @respx.mock
     async def test_not_found(self) -> None:
-        respx.get(GROUP_SHOW_URL).mock(
-            return_value=httpx.Response(200, json={"success": False})
-        )
+        respx.get(GROUP_SHOW_URL).mock(return_value=httpx.Response(200, json={"success": False}))
         titulo, datasets = await client.listar_datasets_grupo("nao-existe")
         assert titulo is None
         assert datasets == []
