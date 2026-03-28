@@ -9,11 +9,17 @@ PNCP_API_BASE = "https://pncp.gov.br/api/consulta/v1"
 
 # Endpoints (verified against OpenAPI spec)
 CONTRATACOES_URL = f"{PNCP_API_BASE}/contratacoes/publicacao"
+CONTRATACOES_PROPOSTA_URL = f"{PNCP_API_BASE}/contratacoes/proposta"
+CONTRATACOES_ATUALIZACAO_URL = f"{PNCP_API_BASE}/contratacoes/atualizacao"
 CONTRATOS_URL = f"{PNCP_API_BASE}/contratos"
+CONTRATOS_ATUALIZACAO_URL = f"{PNCP_API_BASE}/contratos/atualizacao"
 ATAS_URL = f"{PNCP_API_BASE}/atas"
+ATAS_ATUALIZACAO_URL = f"{PNCP_API_BASE}/atas/atualizacao"
 FORNECEDORES_URL = f"{PNCP_API_BASE}/fornecedores"
 ORGAOS_URL = f"{PNCP_API_BASE}/orgaos"
-# Note: /itens endpoint does NOT exist (returns 404). Removed.
+CONTRATACAO_DETALHE_URL = f"{PNCP_API_BASE}/orgaos"
+PCA_URL = f"{PNCP_API_BASE}/pca"
+INSTRUMENTOS_COBRANCA_URL = f"{PNCP_API_BASE}/instrumentoscobranca/inclusao"
 
 # Paginação
 DEFAULT_PAGE_SIZE = 10

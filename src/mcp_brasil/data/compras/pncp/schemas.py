@@ -116,3 +116,57 @@ class OrgaoResultado(BaseModel):
 
     total: int = 0
     orgaos: list[OrgaoContratante] = []
+
+
+class ItemPca(BaseModel):
+    """Item do Plano de Contratações Anual."""
+
+    numero_item: int | None = None
+    descricao: str | None = None
+    quantidade_estimada: float | None = None
+    valor_unitario: float | None = None
+    valor_total: float | None = None
+    unidade_fornecimento: str | None = None
+    categoria: str | None = None
+    data_desejada: str | None = None
+
+
+class Pca(BaseModel):
+    """Plano de Contratações Anual."""
+
+    orgao_cnpj: str | None = None
+    orgao_nome: str | None = None
+    ano: int | None = None
+    unidade_nome: str | None = None
+    id_pca: str | None = None
+    data_publicacao: str | None = None
+    itens: list[ItemPca] = []
+
+
+class PcaResultado(BaseModel):
+    """Resultado paginado de busca de PCAs."""
+
+    total: int = 0
+    pcas: list[Pca] = []
+
+
+class InstrumentoCobranca(BaseModel):
+    """Instrumento de cobrança (nota fiscal) vinculado a contrato."""
+
+    cnpj_orgao: str | None = None
+    ano_contrato: int | None = None
+    numero_instrumento: str | None = None
+    tipo_nome: str | None = None
+    data_emissao: str | None = None
+    objeto_contrato: str | None = None
+    fornecedor_nome: str | None = None
+    fornecedor_cnpj: str | None = None
+    valor_nf: str | None = None
+    chave_nfe: str | None = None
+
+
+class InstrumentoCobrancaResultado(BaseModel):
+    """Resultado paginado de busca de instrumentos de cobrança."""
+
+    total: int = 0
+    instrumentos: list[InstrumentoCobranca] = []

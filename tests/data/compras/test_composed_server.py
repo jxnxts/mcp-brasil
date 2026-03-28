@@ -21,6 +21,15 @@ class TestComposedServer:
                 "pncp_buscar_atas",
                 "pncp_consultar_fornecedor",
                 "pncp_consultar_orgao",
+                "pncp_buscar_contratacoes_abertas",
+                "pncp_buscar_contratacoes_atualizadas",
+                "pncp_buscar_contratos_atualizados",
+                "pncp_buscar_atas_atualizadas",
+                "pncp_consultar_contratacao_detalhe",
+                "pncp_buscar_pca",
+                "pncp_buscar_pca_atualizacao",
+                "pncp_buscar_pca_usuario",
+                "pncp_buscar_instrumentos_cobranca",
             }
             assert expected.issubset(names), f"Missing: {expected - names}"
 
@@ -59,4 +68,4 @@ class TestComposedServer:
     async def test_total_tools_count(self) -> None:
         async with Client(mcp) as c:
             tool_list = await c.list_tools()
-            assert len(tool_list) == 13, f"Expected 13 tools, got {len(tool_list)}"
+            assert len(tool_list) == 29, f"Expected 29 tools, got {len(tool_list)}"
