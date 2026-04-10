@@ -20,10 +20,11 @@ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools import ToolResult
 from starlette.responses import JSONResponse
 
+from ._shared.auth import build_auth
 from ._shared.batch import build_dispatch, execute_batch
 from ._shared.feature import FeatureRegistry
 from ._shared.lifespan import http_lifespan
-from .settings import MCP_BRASIL_API_TOKEN, TOOL_SEARCH
+from .settings import TOOL_SEARCH
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,21 +72,9 @@ class RequestLoggingMiddleware(Middleware):
 
 
 # ---------------------------------------------------------------------------
-# Authentication — conditional on MCP_BRASIL_API_TOKEN
+# Authentication — configurable via MCP_BRASIL_AUTH_MODE (none|static|oauth)
 # ---------------------------------------------------------------------------
-auth = None
-if MCP_BRASIL_API_TOKEN:
-    from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-
-    auth = StaticTokenVerifier(
-        tokens={
-            MCP_BRASIL_API_TOKEN: {
-                "client_id": "mcp-client",
-                "scopes": ["read"],
-            }
-        }
-    )
-    logger.info("Auth enabled: StaticTokenVerifier (Bearer token required)")
+auth = build_auth()
 
 # ---------------------------------------------------------------------------
 # Server setup

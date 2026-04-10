@@ -168,6 +168,18 @@ class TestExecutarLote:
             assert "paralelo" in tool.description.lower()
 
 
+class TestRootServerAuth:
+    """Smoke tests for the auth strategy of the root server."""
+
+    def test_auth_disabled_in_test_env(self) -> None:
+        """conftest.py sets MCP_BRASIL_AUTH_MODE=none, so root server has auth=None."""
+        # When auth is disabled, the FastMCP server is built with auth=None.
+        # This also confirms the build_auth() factory is wired into server.py.
+        from mcp_brasil.server import auth as root_auth
+
+        assert root_auth is None
+
+
 class TestRootServerToolTags:
     @pytest.mark.asyncio
     async def test_tools_have_tags(self) -> None:

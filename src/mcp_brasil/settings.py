@@ -29,5 +29,50 @@ TOOL_SEARCH: str = os.environ.get("MCP_BRASIL_TOOL_SEARCH", "bm25")
 # Leave empty/unset for local/stdio usage without auth.
 MCP_BRASIL_API_TOKEN: str | None = os.environ.get("MCP_BRASIL_API_TOKEN") or None
 
+# --- Authentication Strategy ---
+# Modes: "none" | "static" | "oauth"
+# Auto-detect (backward compat): if unset, defaults to "static" when
+# MCP_BRASIL_API_TOKEN is set, else "none".
+_AUTH_MODE_RAW: str = os.environ.get("MCP_BRASIL_AUTH_MODE", "").strip().lower()
+AUTH_MODE: str = _AUTH_MODE_RAW or ("static" if MCP_BRASIL_API_TOKEN else "none")
+
+# OAuth — common
+OAUTH_PROVIDER: str = os.environ.get("MCP_BRASIL_OAUTH_PROVIDER", "").strip().lower()
+MCP_BRASIL_BASE_URL: str = os.environ.get("MCP_BRASIL_BASE_URL", "").strip()
+
+
+def _parse_scopes(raw: str, default: list[str] | None = None) -> list[str]:
+    """Parse a comma-separated list of scopes into a list[str].
+
+    Returns ``default`` (or an empty list) when ``raw`` contains no entries.
+    """
+    items = [s.strip() for s in raw.split(",") if s.strip()]
+    return items if items else (default or [])
+
+
+# Azure (Entra ID)
+AZURE_CLIENT_ID: str = os.environ.get("AZURE_CLIENT_ID", "")
+AZURE_CLIENT_SECRET: str = os.environ.get("AZURE_CLIENT_SECRET", "")
+AZURE_TENANT_ID: str = os.environ.get("AZURE_TENANT_ID", "")
+AZURE_REQUIRED_SCOPES: list[str] = _parse_scopes(
+    os.environ.get("AZURE_REQUIRED_SCOPES", ""), ["read"]
+)
+
+# Google
+GOOGLE_CLIENT_ID: str = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET: str = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REQUIRED_SCOPES: list[str] = _parse_scopes(
+    os.environ.get("GOOGLE_REQUIRED_SCOPES", ""), ["openid", "email"]
+)
+
+# GitHub
+GITHUB_CLIENT_ID: str = os.environ.get("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET: str = os.environ.get("GITHUB_CLIENT_SECRET", "")
+GITHUB_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("GITHUB_REQUIRED_SCOPES", ""))
+
+# WorkOS (AuthKit)
+AUTHKIT_DOMAIN: str = os.environ.get("AUTHKIT_DOMAIN", "").strip()
+AUTHKIT_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("AUTHKIT_REQUIRED_SCOPES", ""))
+
 # --- LLM Discovery (recomendar_tools) ---
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
