@@ -2,6 +2,16 @@
 
 Todas as mudanças notáveis do mcp-brasil estão documentadas neste arquivo.
 
+## [0.11.0] - 2026-04-10
+
+### Documentation
+
+- Update tool counts to 363 and expand transparencia catalog
+
+### Refactoring
+
+- **auth:** Introduce configurable auth strategy (none|static|oauth)
+
 ## [0.10.0] - 2026-04-09
 
 ### Features
