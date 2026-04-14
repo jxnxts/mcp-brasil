@@ -2,6 +2,12 @@
 
 Todas as mudanças notáveis do mcp-brasil estão documentadas neste arquivo.
 
+## [0.12.1] - 2026-04-14
+
+### Bug Fixes
+
+- **denasus:** Update scraper for new gov.br page structure
+
 ## [0.12.0] - 2026-04-14
 
 ### Bug Fixes
