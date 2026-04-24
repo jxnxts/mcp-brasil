@@ -206,14 +206,44 @@ def _download_and_extract_zip(
     return total
 
 
+def _stage_source(
+    spec: DatasetSpec,
+    url: str,
+    zip_member: str | None,
+    dest: Path,
+    timeout: float,
+) -> int:
+    """Download (+ extract) a single source to ``dest`` as UTF-8."""
+    if zip_member:
+        return _download_and_extract_zip(
+            url,
+            dest,
+            zip_member=zip_member,
+            timeout=timeout,
+            source_encoding=spec.source_encoding,
+        )
+    return _download_to_file(url, dest, timeout=timeout, source_encoding=spec.source_encoding)
+
+
+def _render_read_csv_call(csv_tmp: Path, csv_options: dict[str, Any]) -> str:
+    """Render a `read_csv_auto('<file>', ...)` call string."""
+    url_escaped = str(csv_tmp).replace("'", "''")
+    kwargs = _render_csv_options({**csv_options, "encoding": "utf-8"})
+    kwargs_part = f", {kwargs}" if kwargs else ""
+    return f"read_csv_auto('{url_escaped}'{kwargs_part})"
+
+
 def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
-    """Download the source CSV into a fresh DuckDB file.
+    """Download the source(s) and materialize them in a persistent .duckdb file.
 
     Strategy:
-        1. Stream the CSV to a local temp file via httpx (reliable with
-           redirects/cookies/slow servers).
-        2. Load the local file into DuckDB (avoids httpfs encoding/redirect
-           quirks for non-utf-8 sources).
+        1. Stream each CSV to a local temp file via httpx (reliable with
+           redirects/cookies/slow servers; handles ZIP archives via
+           ``zip_member``; transcodes cp1252/other encodings to UTF-8).
+        2. Load into DuckDB. For single-source specs, the table is created
+           directly. For multi-source specs, one table is created per source
+           (named ``{table}_{suffix}``) plus a ``{table}`` VIEW doing
+           ``UNION ALL BY NAME`` across them.
 
     Runs synchronously — caller is responsible for off-loading to a thread
     via ``asyncio.to_thread`` when called from async context.
@@ -224,57 +254,53 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
     tmp_path = path.with_suffix(".duckdb.part")
     if tmp_path.exists():
         tmp_path.unlink()
-    csv_tmp = path.with_suffix(".source.tmp")
-    if csv_tmp.exists():
-        csv_tmp.unlink()
 
-    logger.info("Loading dataset %s from %s", spec.id, spec.url)
-    if spec.zip_member:
-        downloaded = _download_and_extract_zip(
-            spec.url,
-            csv_tmp,
-            zip_member=spec.zip_member,
-            timeout=_settings.DATASET_DOWNLOAD_TIMEOUT,
-            source_encoding=spec.source_encoding,
-        )
-    else:
-        logger.info("Downloading to %s (encoding=%s) ...", csv_tmp, spec.source_encoding)
-        downloaded = _download_to_file(
-            spec.url,
-            csv_tmp,
-            timeout=_settings.DATASET_DOWNLOAD_TIMEOUT,
-            source_encoding=spec.source_encoding,
-        )
-    logger.info("Extracted %d bytes; loading into DuckDB", downloaded)
+    # Normalize the source list — single-source specs are promoted to a
+    # one-entry list so the downstream loop handles both uniformly.
+    sources: list[tuple[str, str | None, str]] = (
+        list(spec.sources) if spec.sources else [(spec.url, spec.zip_member, "")]
+    )
 
-    # After transcode, the file on disk is always UTF-8. Any encoding option
-    # declared by the spec for DuckDB must be overridden accordingly.
-    csv_kwargs = dict(spec.csv_options)
-    csv_kwargs["encoding"] = "utf-8"
-
+    logger.info("Loading dataset %s with %d source(s) into %s", spec.id, len(sources), tmp_path)
     con = duckdb.connect(str(tmp_path), read_only=False)
     try:
-        url_escaped = str(csv_tmp).replace("'", "''")
-        kwargs = _render_csv_options(csv_kwargs)
-        kwargs_part = f", {kwargs}" if kwargs else ""
-        sql = (
-            f'CREATE OR REPLACE TABLE "{spec.table}" AS '
-            f"SELECT * FROM read_csv_auto('{url_escaped}'{kwargs_part})"
-        )
-        con.execute(sql)
+        total_row_count = 0
+        schema_reprs: list[str] = []
+        for url, zip_member, suffix in sources:
+            csv_tmp = path.with_suffix(f".{suffix or 'single'}.tmp")
+            if csv_tmp.exists():
+                csv_tmp.unlink()
+            staged = _stage_source(
+                spec, url, zip_member, csv_tmp, _settings.DATASET_DOWNLOAD_TIMEOUT
+            )
+            logger.info(
+                "Staged source %s (%d bytes); ingesting into DuckDB",
+                suffix or spec.table,
+                staged,
+            )
+            table_name = f"{spec.table}_{suffix}" if suffix else spec.table
+            read_csv = _render_read_csv_call(csv_tmp, spec.csv_options)
+            con.execute(f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT * FROM {read_csv}')
+            row = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()
+            total_row_count += int(row[0]) if row else 0
+            schema_rows = con.execute(f'DESCRIBE "{table_name}"').fetchall()
+            schema_reprs.append(f"{table_name}:" + "|".join(f"{r[0]}:{r[1]}" for r in schema_rows))
+            with contextlib.suppress(FileNotFoundError):
+                csv_tmp.unlink()
 
-        row = con.execute(f'SELECT COUNT(*) FROM "{spec.table}"').fetchone()
-        row_count = int(row[0]) if row else 0
+        # Multi-source: create consolidated UNION ALL BY NAME view.
+        if spec.sources:
+            parts = [f'SELECT * FROM "{spec.table}_{sfx}"' for _, _, sfx in spec.sources]
+            union_sql = " UNION ALL BY NAME ".join(parts)
+            con.execute(f'CREATE OR REPLACE VIEW "{spec.table}" AS {union_sql}')
 
-        schema_rows = con.execute(f'DESCRIBE "{spec.table}"').fetchall()
-        schema_repr = "|".join(f"{r[0]}:{r[1]}" for r in schema_rows)
+        schema_repr = "||".join(schema_reprs)
+        row_count = total_row_count
     finally:
         con.close()
 
-    # Swap into place and discard the source CSV.
+    # Swap into place
     tmp_path.replace(path)
-    with contextlib.suppress(FileNotFoundError):
-        csv_tmp.unlink()
     size_bytes = path.stat().st_size
 
     manifest = Manifest(

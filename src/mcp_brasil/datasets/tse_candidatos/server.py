@@ -7,6 +7,7 @@ from .resources import catalogo_valores, info_dataset, schema_tabela
 from .tools import (
     buscar_candidatos,
     info_tse_candidatos,
+    ranking_anual_eleitos,
     refrescar_tse_candidatos,
     resumo_cargo_partido,
     resumo_perfil_eleitos,
@@ -22,6 +23,7 @@ mcp.tool(buscar_candidatos)
 mcp.tool(resumo_cargo_partido)
 mcp.tool(resumo_perfil_eleitos)
 mcp.tool(top_municipios_candidatos)
+mcp.tool(ranking_anual_eleitos)
 mcp.tool(refrescar_tse_candidatos)
 
 mcp.resource("data://info", mime_type="application/json")(info_dataset)

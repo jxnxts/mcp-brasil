@@ -110,9 +110,10 @@ async def buscar_candidatos(
     partido: str | None = None,
     situacao_turno: str | None = None,
     genero: str | None = None,
+    ano: int | None = None,
     limite: int = 30,
 ) -> str:
-    """Busca candidatos das eleições 2024 por filtros combinados.
+    """Busca candidatos nas eleições 2014-2024 por filtros combinados.
 
     Pelo menos um filtro é recomendado. Todos os filtros de texto são
     case/accent-insensitive. CPF, título eleitoral e e-mail são
@@ -121,24 +122,30 @@ async def buscar_candidatos(
     Args:
         nome: Nome do candidato (urna ou completo, substring).
         uf: Sigla UF (ex: 'SP', 'RJ').
-        municipio: Nome do município (NM_UE no SIAPA é a unidade eleitoral).
-        cargo: 'PREFEITO', 'VICE-PREFEITO', 'VEREADOR'.
+        municipio: Nome do município (NM_UE no TSE = unidade eleitoral).
+        cargo: 'PREFEITO', 'VICE-PREFEITO', 'VEREADOR', 'DEPUTADO FEDERAL',
+            'DEPUTADO ESTADUAL', 'SENADOR', 'GOVERNADOR', 'PRESIDENTE'.
         partido: Sigla do partido (ex: 'PT', 'PL', 'MDB').
         situacao_turno: Resultado — ex: 'ELEITO', 'NÃO ELEITO', 'SUPLENTE'.
         genero: 'MASCULINO' / 'FEMININO'.
+        ano: Ano eleitoral (2014, 2016, 2018, 2020, 2022 ou 2024).
+            Se omitido, inclui todos os anos.
         limite: Máximo de linhas (padrão 30, máx 200).
 
     Returns:
-        Tabela com nome urna, cargo, partido, UF/município, gênero, resultado.
+        Tabela com ano, nome urna, cargo, partido, UF/município, gênero, resultado.
     """
     limite = max(1, min(limite, 200))
     await ctx.info(
         f"Buscando candidatos (nome={nome}, uf={uf}, municipio={municipio}, "
-        f"cargo={cargo}, partido={partido}, situacao={situacao_turno})..."
+        f"cargo={cargo}, partido={partido}, ano={ano}, situacao={situacao_turno})..."
     )
 
     where: list[str] = []
     params: list[Any] = []
+    if ano is not None:
+        where.append("CAST(ano_eleicao AS INTEGER) = ?")
+        params.append(int(ano))
     if nome:
         where.append(
             "(strip_accents(nm_candidato) ILIKE strip_accents(?) OR "
@@ -166,11 +173,11 @@ async def buscar_candidatos(
 
     where_sql = " AND ".join(where) if where else "1=1"
     sql = (
-        "SELECT sq_candidato, nm_candidato, nm_urna_candidato, ds_cargo, "
-        "sg_partido, sg_uf, nm_ue, ds_genero, ds_grau_instrucao, "
+        "SELECT ano_eleicao, sq_candidato, nm_candidato, nm_urna_candidato, "
+        "ds_cargo, sg_partido, sg_uf, nm_ue, ds_genero, ds_grau_instrucao, "
         "ds_ocupacao, ds_sit_tot_turno, nr_cpf_candidato, ds_email "
         f'FROM "{DATASET_TABLE}" WHERE {where_sql} '
-        f"ORDER BY sg_uf, ds_cargo, nm_urna_candidato LIMIT {limite}"
+        f"ORDER BY ano_eleicao DESC, sg_uf, ds_cargo, nm_urna_candidato LIMIT {limite}"
     )
     rows = await executar_query(DATASET_SPEC, sql, params)
     rows = redact_rows(rows, DATASET_SPEC)
@@ -184,18 +191,18 @@ async def buscar_candidatos(
 
     table = [
         (
-            (r.get("nm_urna_candidato") or r.get("nm_candidato") or "—")[:30],
-            (r.get("ds_cargo") or "—")[:15],
+            str(r.get("ano_eleicao") or "—"),
+            (r.get("nm_urna_candidato") or r.get("nm_candidato") or "—")[:28],
+            (r.get("ds_cargo") or "—")[:18],
             r.get("sg_partido") or "—",
             r.get("sg_uf") or "—",
             (r.get("nm_ue") or "—")[:20],
-            (r.get("ds_genero") or "—")[:10],
             (r.get("ds_sit_tot_turno") or "—")[:18],
         )
         for r in rows
     ]
-    return f"**TSE candidatos 2024 — {len(rows)} resultado(s)**\n\n" + markdown_table(
-        ["Nome", "Cargo", "Partido", "UF", "Município", "Gênero", "Resultado"],
+    return f"**TSE candidatos — {len(rows)} resultado(s)**\n\n" + markdown_table(
+        ["Ano", "Nome", "Cargo", "Partido", "UF", "Município", "Resultado"],
         table,
     )
 
@@ -203,31 +210,38 @@ async def buscar_candidatos(
 async def resumo_cargo_partido(
     ctx: Context,
     cargo: str = "PREFEITO",
+    ano: int | None = None,
     limite: int = 20,
 ) -> str:
     """Agrega candidatos de um cargo por partido (eleitos vs total).
 
     Args:
-        cargo: 'PREFEITO', 'VICE-PREFEITO' ou 'VEREADOR'.
-        limite: Quantidade de partidos no ranking (padrão 20).
+        cargo: Nome do cargo (ex: 'PREFEITO', 'DEPUTADO FEDERAL').
+        ano: Filtra por ano eleitoral (2014, 2016, 2018, 2020, 2022, 2024).
+            Se omitido, soma todos os anos disponíveis.
+        limite: Quantidade de partidos no ranking.
 
     Returns:
-        Tabela com partido, total de candidatos e eleitos, ordenada por eleitos.
+        Tabela com partido, total de candidatos e eleitos.
     """
     limite = max(1, min(limite, 50))
-    await ctx.info(f"Agregando {cargo} por partido...")
+    await ctx.info(f"Agregando {cargo} por partido (ano={ano})...")
+    where = "strip_accents(ds_cargo) ILIKE strip_accents(?)"
+    params: list[Any] = [f"%{cargo}%"]
+    if ano is not None:
+        where += " AND CAST(ano_eleicao AS INTEGER) = ?"
+        params.append(int(ano))
     sql = (
         "SELECT sg_partido, COUNT(*) AS total, "
         "SUM(CASE WHEN UPPER(ds_sit_tot_turno) LIKE 'ELEITO%' THEN 1 ELSE 0 END) "
         "AS eleitos "
-        f'FROM "{DATASET_TABLE}" '
-        "WHERE strip_accents(ds_cargo) ILIKE strip_accents(?) "
+        f'FROM "{DATASET_TABLE}" WHERE {where} '
         "GROUP BY sg_partido ORDER BY eleitos DESC, total DESC "
         f"LIMIT {limite}"
     )
-    rows = await executar_query(DATASET_SPEC, sql, [f"%{cargo}%"])
+    rows = await executar_query(DATASET_SPEC, sql, params)
     if not rows:
-        return f"Nenhum candidato para cargo {cargo!r}."
+        return f"Nenhum candidato para {cargo!r} (ano={ano})."
     body = [
         (
             r.get("sg_partido") or "—",
@@ -236,7 +250,8 @@ async def resumo_cargo_partido(
         )
         for r in rows
     ]
-    return f"**TSE 2024 — {cargo} por partido (top {len(rows)})**\n\n" + markdown_table(
+    titulo = f"{cargo} por partido — {ano or 'todos os anos'}"
+    return f"**TSE — {titulo} (top {len(rows)})**\n\n" + markdown_table(
         ["Partido", "Candidatos", "Eleitos"], body
     )
 
@@ -244,19 +259,27 @@ async def resumo_cargo_partido(
 async def resumo_perfil_eleitos(
     ctx: Context,
     cargo: str = "PREFEITO",
+    ano: int | None = None,
 ) -> str:
     """Perfil demográfico dos eleitos num cargo (gênero, raça, escolaridade).
 
     Args:
-        cargo: 'PREFEITO', 'VICE-PREFEITO' ou 'VEREADOR'.
+        cargo: Nome do cargo.
+        ano: Ano eleitoral opcional (default: todos).
 
     Returns:
         Três tabelas: por gênero, por raça, por grau de instrução.
     """
-    await ctx.info(f"Montando perfil dos eleitos — {cargo}...")
+    await ctx.info(f"Montando perfil dos eleitos — {cargo} (ano={ano})...")
+    extra = ""
+    params_extra: list[Any] = []
+    if ano is not None:
+        extra = " AND CAST(ano_eleicao AS INTEGER) = ?"
+        params_extra = [int(ano)]
 
-    sections: list[str] = [f"**Perfil dos eleitos — {cargo}**\n"]
-    for coluna, titulo in [
+    titulo = f"{cargo} — {ano or 'todos os anos'}"
+    sections: list[str] = [f"**Perfil dos eleitos — {titulo}**\n"]
+    for coluna, titulo_tab in [
         ("ds_genero", "Gênero"),
         ("ds_cor_raca", "Raça/Cor"),
         ("ds_grau_instrucao", "Escolaridade"),
@@ -266,9 +289,10 @@ async def resumo_perfil_eleitos(
             f'FROM "{DATASET_TABLE}" '
             "WHERE strip_accents(ds_cargo) ILIKE strip_accents(?) "
             "AND UPPER(ds_sit_tot_turno) LIKE 'ELEITO%' "
+            f"{extra} "
             f'GROUP BY "{coluna}" ORDER BY n DESC'
         )
-        rows = await executar_query(DATASET_SPEC, sql, [f"%{cargo}%"])
+        rows = await executar_query(DATASET_SPEC, sql, [f"%{cargo}%", *params_extra])
         body = [
             (
                 str(r.get("v")) if r.get("v") is not None else "(null)",
@@ -276,36 +300,43 @@ async def resumo_perfil_eleitos(
             )
             for r in rows
         ]
-        sections.append(f"\n### {titulo}\n\n" + markdown_table([titulo, "Eleitos"], body))
+        sections.append(f"\n### {titulo_tab}\n\n" + markdown_table([titulo_tab, "Eleitos"], body))
     return "\n".join(sections)
 
 
 async def top_municipios_candidatos(
     ctx: Context,
     uf: str,
+    ano: int | None = None,
     top: int = 20,
 ) -> str:
     """Top municípios de uma UF por número de candidatos.
 
     Args:
         uf: Sigla UF.
+        ano: Ano eleitoral (opcional — default: todos).
         top: Quantidade (padrão 20).
 
     Returns:
         Tabela com município, total de candidatos e eleitos.
     """
     top = max(1, min(top, 100))
-    await ctx.info(f"Top {top} municípios de {uf}...")
+    await ctx.info(f"Top {top} municípios de {uf} (ano={ano})...")
+    where = "TRIM(sg_uf) = ?"
+    params: list[Any] = [uf.strip().upper()]
+    if ano is not None:
+        where += " AND CAST(ano_eleicao AS INTEGER) = ?"
+        params.append(int(ano))
     sql = (
         "SELECT nm_ue, COUNT(*) AS total, "
         "SUM(CASE WHEN UPPER(ds_sit_tot_turno) LIKE 'ELEITO%' THEN 1 ELSE 0 END) "
         "AS eleitos "
-        f'FROM "{DATASET_TABLE}" WHERE TRIM(sg_uf) = ? '
+        f'FROM "{DATASET_TABLE}" WHERE {where} '
         f"GROUP BY nm_ue ORDER BY total DESC LIMIT {top}"
     )
-    rows = await executar_query(DATASET_SPEC, sql, [uf.strip().upper()])
+    rows = await executar_query(DATASET_SPEC, sql, params)
     if not rows:
-        return f"Nenhum candidato em {uf}."
+        return f"Nenhum candidato em {uf} (ano={ano})."
     body = [
         (
             r.get("nm_ue") or "—",
@@ -314,6 +345,50 @@ async def top_municipios_candidatos(
         )
         for r in rows
     ]
-    return f"**TSE 2024 — Top {len(rows)} municípios de {uf}**\n\n" + markdown_table(
-        ["Município", "Candidatos", "Eleitos"], body
+    titulo = f"Top {len(rows)} municípios de {uf} — {ano or 'todos os anos'}"
+    return f"**TSE — {titulo}**\n\n" + markdown_table(["Município", "Candidatos", "Eleitos"], body)
+
+
+async def ranking_anual_eleitos(
+    ctx: Context,
+    cargo: str = "PREFEITO",
+) -> str:
+    """Evolução anual de candidatos e eleitos para um cargo (2014-2024).
+
+    Útil para comparar ciclos eleitorais.
+
+    Args:
+        cargo: Cargo (ex: 'PREFEITO', 'DEPUTADO FEDERAL', 'SENADOR').
+
+    Returns:
+        Tabela com ano, candidatos, eleitos e taxa de sucesso.
+    """
+    await ctx.info(f"Série histórica — {cargo}...")
+    sql = (
+        "SELECT CAST(ano_eleicao AS INTEGER) AS ano, COUNT(*) AS candidatos, "
+        "SUM(CASE WHEN UPPER(ds_sit_tot_turno) LIKE 'ELEITO%' THEN 1 ELSE 0 END) "
+        "AS eleitos "
+        f'FROM "{DATASET_TABLE}" '
+        "WHERE strip_accents(ds_cargo) ILIKE strip_accents(?) "
+        "AND ano_eleicao IS NOT NULL "
+        "GROUP BY CAST(ano_eleicao AS INTEGER) ORDER BY ano DESC"
+    )
+    rows = await executar_query(DATASET_SPEC, sql, [f"%{cargo}%"])
+    if not rows:
+        return f"Nenhum dado histórico para {cargo!r}."
+    body = []
+    for r in rows:
+        tot = int(r.get("candidatos") or 0)
+        elt = int(r.get("eleitos") or 0)
+        taxa = (100.0 * elt / tot) if tot else 0.0
+        body.append(
+            (
+                str(r.get("ano") or "—"),
+                format_number_br(tot, 0),
+                format_number_br(elt, 0),
+                f"{taxa:.1f}%",
+            )
+        )
+    return f"**TSE — série histórica de {cargo}**\n\n" + markdown_table(
+        ["Ano", "Candidatos", "Eleitos", "Taxa de sucesso"], body
     )

@@ -46,6 +46,12 @@ class DatasetSpec:
     # extract. The loader downloads the ZIP, extracts this member, transcodes
     # if needed, and feeds it to DuckDB. Example: "consulta_cand_2024_BRASIL.csv".
     zip_member: str | None = None
+    # Multi-source support — tuples of (url, zip_member_or_None, suffix).
+    # When non-empty, the loader:
+    #   1. Loads each source into a per-year table named f"{table}_{suffix}"
+    #   2. Creates a view named `table` doing UNION ALL BY NAME across all
+    # The "main" url/zip_member fields above are ignored when sources is set.
+    sources: tuple[tuple[str, str | None, str], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.id or not self.id.replace("_", "").isalnum():

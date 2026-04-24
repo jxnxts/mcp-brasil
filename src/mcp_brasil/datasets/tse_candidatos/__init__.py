@@ -1,9 +1,12 @@
-"""Feature tse_candidatos — registro completo de candidatos das eleições de 2024.
+"""Feature tse_candidatos — registro de candidatos, eleições 2014-2024.
 
-Dataset consolidado do TSE (consulta_cand_2024) com todos os candidatos que
-pediram registro na Justiça Eleitoral em 2024 — eleições municipais (prefeito,
-vice-prefeito, vereador) mais suplementares. ~500k linhas, ~63MB ZIP → ~243MB
-CSV descompactado.
+Agrupa os arquivos ``consulta_cand_{ANO}`` dos anos eleitorais 2014, 2016,
+2018, 2020, 2022 e 2024 em uma única view DuckDB. Inclui eleições municipais
+e federais/estaduais.
+
+Schema varia entre anos (2016 tem colunas extras; nomes de e-mail mudam
+entre NM_EMAIL/DS_EMAIL). A view usa ``UNION ALL BY NAME`` para consolidar
+tudo — colunas ausentes em um ano viram NULL.
 
 Ativação: ``MCP_BRASIL_DATASETS=tse_candidatos`` no ``.env``.
 """
@@ -13,108 +16,62 @@ from mcp_brasil._shared.datasets import DatasetSpec
 from mcp_brasil._shared.feature import FeatureMeta
 
 DATASET_ID = "tse_candidatos"
-DATASET_TABLE = "candidatos_2024"
+DATASET_TABLE = "candidatos"
 
-DATASET_URL = "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2024.zip"
-ZIP_MEMBER = "consulta_cand_2024_BRASIL.csv"
+_BASE_URL = "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand"
+_ANOS = (2014, 2016, 2018, 2020, 2022, 2024)
 
-# Nomes normalizados (snake_case, sem prefixos TSE). A ordem segue o header.
-_COLUMN_NAMES: list[str] = [
-    "dt_geracao",
-    "hh_geracao",
-    "ano_eleicao",
-    "cd_tipo_eleicao",
-    "nm_tipo_eleicao",
-    "nr_turno",
-    "cd_eleicao",
-    "ds_eleicao",
-    "dt_eleicao",
-    "tp_abrangencia",
-    "sg_uf",
-    "sg_ue",
-    "nm_ue",
-    "cd_cargo",
-    "ds_cargo",
-    "sq_candidato",
-    "nr_candidato",
-    "nm_candidato",
-    "nm_urna_candidato",
-    "nm_social_candidato",
-    "nr_cpf_candidato",
-    "ds_email",
-    "cd_situacao_candidatura",
-    "ds_situacao_candidatura",
-    "tp_agremiacao",
-    "nr_partido",
-    "sg_partido",
-    "nm_partido",
-    "nr_federacao",
-    "nm_federacao",
-    "sg_federacao",
-    "ds_composicao_federacao",
-    "sq_coligacao",
-    "nm_coligacao",
-    "ds_composicao_coligacao",
-    "sg_uf_nascimento",
-    "dt_nascimento",
-    "nr_titulo_eleitoral_candidato",
-    "cd_genero",
-    "ds_genero",
-    "cd_grau_instrucao",
-    "ds_grau_instrucao",
-    "cd_estado_civil",
-    "ds_estado_civil",
-    "cd_cor_raca",
-    "ds_cor_raca",
-    "cd_ocupacao",
-    "ds_ocupacao",
-    "cd_sit_tot_turno",
-    "ds_sit_tot_turno",
-]
-
+_SOURCES: tuple[tuple[str, str | None, str], ...] = tuple(
+    (
+        f"{_BASE_URL}/consulta_cand_{ano}.zip",
+        f"consulta_cand_{ano}_BRASIL.csv",
+        str(ano),
+    )
+    for ano in _ANOS
+)
 
 DATASET_SPEC = DatasetSpec(
     id=DATASET_ID,
-    url=DATASET_URL,
+    url=_SOURCES[-1][0],  # unused when sources is set; kept for manifest
     table=DATASET_TABLE,
     ttl_days=30,
-    approx_size_mb=63,
-    source="TSE — Portal de Dados Abertos (consulta_cand_2024)",
+    approx_size_mb=290,  # sum of all years combined
+    source="TSE — Portal de Dados Abertos (consulta_cand, 2014-2024)",
     description=(
-        "Candidatos das eleições municipais 2024 (prefeito, vice, vereador) — "
-        "dados cadastrais, partido, resultado, gênero, escolaridade, ocupação."
+        "Candidatos de todas as eleições 2014-2024 (municipais e federais). "
+        "~4M registros consolidados via UNION ALL BY NAME."
     ),
-    zip_member=ZIP_MEMBER,
     source_encoding="cp1252",
     csv_options={
         "delim": ";",
-        "header": False,
-        "skip": 1,
+        "header": True,
         "quote": '"',
         "ignore_errors": True,
         "sample_size": -1,
-        "nullstr": ["#NULO", "#NE", "-4", "-3", "-1"],
-        "names": _COLUMN_NAMES,
-        "dtypes": {
-            "ano_eleicao": "INTEGER",
-            "nr_turno": "INTEGER",
-            "nr_candidato": "INTEGER",
-            "cd_cargo": "INTEGER",
-            "nr_partido": "INTEGER",
-        },
+        "nullstr": ["#NULO", "#NULO#", "#NE", "-4", "-3", "-1"],
+        "normalize_names": True,  # lowercase snake_case
+        "all_varchar": True,  # avoid type mismatches across years
     },
-    # PII: CPF + título eleitoral + email são sensíveis
-    pii_columns=frozenset({"nr_cpf_candidato", "nr_titulo_eleitoral_candidato", "ds_email"}),
+    pii_columns=frozenset(
+        {
+            "nr_cpf_candidato",
+            "nr_titulo_eleitoral_candidato",
+            "ds_email",
+            "nm_email",
+        }
+    ),
+    sources=_SOURCES,
 )
 
 FEATURE_META = FeatureMeta(
     name=DATASET_ID,
     description=(
-        "TSE candidatos 2024 — ~500k registros com consulta SQL via DuckDB. "
-        "Inclui prefeitos, vereadores, coligações, federações e resultados. "
+        "TSE candidatos 2014-2024 — ~4M candidatos de 6 eleições com consulta "
+        "SQL via DuckDB. Inclui prefeitos, vereadores, deputados, senadores, "
+        "governadores e presidente. Filtro por ano disponível. "
         "Opt-in: MCP_BRASIL_DATASETS=tse_candidatos."
     ),
-    version="0.1.0",
+    version="0.2.0",
     api_base="https://cdn.tse.jus.br",
     requires_auth=False,
     enabled=DATASET_ID in settings.DATASETS_ENABLED,
@@ -123,7 +80,7 @@ FEATURE_META = FeatureMeta(
         "eleicoes",
         "candidatos",
         "politica",
-        "2024",
+        "historico",
         "duckdb",
         "dataset",
     ],

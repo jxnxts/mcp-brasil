@@ -101,7 +101,7 @@ def tmp_cache(monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def patch_download(tmp_cache: Path):
-    """Stub the ZIP extraction so it writes the fixture CSV directly."""
+    """Write the fixture only for 2024; other years stage an empty CSV."""
 
     def fake_extract(
         url: str,
@@ -111,7 +111,10 @@ def patch_download(tmp_cache: Path):
         timeout: float,
         source_encoding: str = "utf-8",
     ) -> int:
-        dest.write_text(_FIXTURE, encoding="utf-8")
+        if "2024" in zip_member or "2024" in url:
+            dest.write_text(_FIXTURE, encoding="utf-8")
+        else:
+            dest.write_text(_HEADERS + "\n", encoding="utf-8")
         return dest.stat().st_size
 
     with patch(

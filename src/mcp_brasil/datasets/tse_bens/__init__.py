@@ -1,11 +1,7 @@
-"""Feature tse_bens — declaração de bens dos candidatos em 2024.
+"""Feature tse_bens — bens declarados por candidatos, eleições 2014-2024.
 
-Dataset TSE (bem_candidato_2024) com todos os bens declarados pelos candidatos
-no ato do registro — imóveis, veículos, ações, poupança etc.
-~46MB ZIP → ~223MB CSV descompactado.
-
-Para cruzar com candidatos, use ``sq_candidato`` como join key (também
-presente em ``tse_candidatos``).
+Agrupa ``bem_candidato_{ANO}`` de todos os anos eleitorais. Join key:
+``sq_candidato`` (presente também em tse_candidatos).
 
 Ativação: ``MCP_BRASIL_DATASETS=tse_bens`` no ``.env``.
 """
@@ -15,86 +11,63 @@ from mcp_brasil._shared.datasets import DatasetSpec
 from mcp_brasil._shared.feature import FeatureMeta
 
 DATASET_ID = "tse_bens"
-DATASET_TABLE = "bens_candidatos_2024"
+DATASET_TABLE = "bens_candidatos"
 
-DATASET_URL = "https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_2024.zip"
-ZIP_MEMBER = "bem_candidato_2024_BRASIL.csv"
+_BASE_URL = "https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato"
+_ANOS = (2014, 2016, 2018, 2020, 2022, 2024)
 
-_COLUMN_NAMES: list[str] = [
-    "dt_geracao",
-    "hh_geracao",
-    "ano_eleicao",
-    "cd_tipo_eleicao",
-    "nm_tipo_eleicao",
-    "cd_eleicao",
-    "ds_eleicao",
-    "dt_eleicao",
-    "sg_uf",
-    "sg_ue",
-    "nm_ue",
-    "sq_candidato",
-    "nr_ordem_bem_candidato",
-    "cd_tipo_bem_candidato",
-    "ds_tipo_bem_candidato",
-    "ds_bem_candidato",
-    "vr_bem_candidato",
-    "dt_ult_atual_bem_candidato",
-    "hh_ult_atual_bem_candidato",
-]
-
+_SOURCES: tuple[tuple[str, str | None, str], ...] = tuple(
+    (
+        f"{_BASE_URL}/bem_candidato_{ano}.zip",
+        f"bem_candidato_{ano}_BRASIL.csv",
+        str(ano),
+    )
+    for ano in _ANOS
+)
 
 DATASET_SPEC = DatasetSpec(
     id=DATASET_ID,
-    url=DATASET_URL,
+    url=_SOURCES[-1][0],
     table=DATASET_TABLE,
     ttl_days=30,
-    approx_size_mb=46,
-    source="TSE — Portal de Dados Abertos (bem_candidato_2024)",
+    approx_size_mb=205,
+    source="TSE — Portal de Dados Abertos (bem_candidato, 2014-2024)",
     description=(
-        "Bens declarados por candidatos nas eleições municipais 2024 — "
-        "imóveis, veículos, ações, poupança com valor declarado."
+        "Bens declarados por candidatos em todas as eleições 2014-2024 — "
+        "imóveis, veículos, ações, poupança. Join com tse_candidatos via sq_candidato."
     ),
-    zip_member=ZIP_MEMBER,
     source_encoding="cp1252",
     csv_options={
         "delim": ";",
-        "header": False,
-        "skip": 1,
+        "header": True,
         "quote": '"',
         "ignore_errors": True,
         "sample_size": -1,
         "nullstr": ["#NULO", "#NE", "-4", "-3", "-1"],
-        "names": _COLUMN_NAMES,
-        "decimal_separator": ",",
-        "thousands": ".",
-        "dtypes": {
-            "ano_eleicao": "INTEGER",
-            "vr_bem_candidato": "DOUBLE",
-            "nr_ordem_bem_candidato": "INTEGER",
-            "cd_tipo_bem_candidato": "INTEGER",
-        },
+        "normalize_names": True,
+        "all_varchar": True,
     },
-    pii_columns=frozenset(),  # dataset institucional; nomes/bens são públicos
+    pii_columns=frozenset(),
+    sources=_SOURCES,
 )
 
 FEATURE_META = FeatureMeta(
     name=DATASET_ID,
     description=(
-        "TSE bens declarados 2024 — patrimônio de candidatos com consulta SQL "
-        "via DuckDB. Join key: sq_candidato (presente em tse_candidatos). "
+        "TSE bens declarados 2014-2024 — histórico de patrimônio de candidatos "
+        "com consulta SQL via DuckDB. Join key: sq_candidato. "
         "Opt-in: MCP_BRASIL_DATASETS=tse_bens."
     ),
-    version="0.1.0",
+    version="0.2.0",
     api_base="https://cdn.tse.jus.br",
     requires_auth=False,
     enabled=DATASET_ID in settings.DATASETS_ENABLED,
     tags=[
         "tse",
         "eleicoes",
-        "candidatos",
         "patrimonio",
         "bens",
-        "2024",
+        "historico",
         "duckdb",
         "dataset",
     ],

@@ -11,6 +11,29 @@ from mcp_brasil._shared.formatting import format_brl, format_number_br, markdown
 
 from . import DATASET_SPEC, DATASET_TABLE
 
+# DuckDB SQL expression that parses a BR-locale numeric VARCHAR to DOUBLE.
+# "1.200.000,00" -> 1200000.0, "500000,00" -> 500000.0
+# Column is VARCHAR because csv_options has all_varchar=true.
+_VR_PARSE = "TRY_CAST(REPLACE(REPLACE(vr_bem_candidato, '.', ''), ',', '.') AS DOUBLE)"
+
+
+def _parse_br_number(v: Any) -> float:
+    """Parse BR-locale numeric string ('1.200.000,00' → 1200000.0)."""
+    if v is None:
+        return 0.0
+    if isinstance(v, int | float):
+        return float(v)
+    s = str(v).strip()
+    if not s or s in {"-", "#NULO", "#NE"}:
+        return 0.0
+    # Heurística: se tem vírgula como decimal (BR), remove pontos de milhar
+    if "," in s and s.rfind(",") > s.rfind("."):
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
 
 async def info_tse_bens(ctx: Context) -> str:
     """Estado do cache local do dataset TSE bens 2024.
@@ -48,29 +71,31 @@ async def buscar_bens_candidato(
     limite = max(1, min(limite, 300))
     await ctx.info(f"Buscando bens do candidato {sq_candidato}...")
     sql = (
-        "SELECT nr_ordem_bem_candidato, ds_tipo_bem_candidato, ds_bem_candidato, "
-        "vr_bem_candidato "
+        "SELECT ano_eleicao, nr_ordem_bem_candidato, ds_tipo_bem_candidato, "
+        f"ds_bem_candidato, {_VR_PARSE} AS vr_num "
         f'FROM "{DATASET_TABLE}" WHERE CAST(sq_candidato AS VARCHAR) = ? '
-        f"ORDER BY vr_bem_candidato DESC LIMIT {limite}"
+        "ORDER BY vr_num DESC NULLS LAST "
+        f"LIMIT {limite}"
     )
     rows = await executar_query(DATASET_SPEC, sql, [str(sq_candidato).strip()])
     if not rows:
         return f"Nenhum bem declarado para sq_candidato={sq_candidato!r}."
 
-    total = sum(float(r.get("vr_bem_candidato") or 0) for r in rows)
+    total = sum(_parse_br_number(r.get("vr_num")) for r in rows)
     table = [
         (
+            str(r.get("ano_eleicao") or "—"),
             str(r.get("nr_ordem_bem_candidato") or "—"),
-            (r.get("ds_tipo_bem_candidato") or "—")[:30],
-            (r.get("ds_bem_candidato") or "—")[:50],
-            format_brl(float(r.get("vr_bem_candidato") or 0)),
+            (r.get("ds_tipo_bem_candidato") or "—")[:28],
+            (r.get("ds_bem_candidato") or "—")[:45],
+            format_brl(_parse_br_number(r.get("vr_num"))),
         )
         for r in rows
     ]
     return (
         f"**Bens do candidato {sq_candidato}** — {len(rows)} bem(ns), "
         f"total declarado: {format_brl(total)}\n\n"
-        + markdown_table(["#", "Tipo", "Descrição", "Valor"], table)
+        + markdown_table(["Ano", "#", "Tipo", "Descrição", "Valor"], table)
     )
 
 
@@ -78,6 +103,7 @@ async def top_patrimonios_cargo(
     ctx: Context,
     cargo: str = "PREFEITO",
     uf: str | None = None,
+    ano: int | None = None,
     limite: int = 20,
 ) -> str:
     """Ranking dos candidatos com maior patrimônio declarado num cargo.
@@ -86,35 +112,41 @@ async def top_patrimonios_cargo(
     recuperar nome, partido, UF e município.
 
     Args:
-        cargo: Cargo a filtrar — 'PREFEITO', 'VICE-PREFEITO', 'VEREADOR'.
+        cargo: Cargo a filtrar (ex: 'PREFEITO', 'DEPUTADO FEDERAL').
         uf: UF opcional.
+        ano: Ano eleitoral (2014-2024). Se omitido, usa todos os anos.
         limite: Quantidade de candidatos (padrão 20, máx 100).
 
     Returns:
-        Tabela com nome, partido, UF, município, patrimônio total.
+        Tabela com ano, nome, partido, UF, município, patrimônio total.
     """
     limite = max(1, min(limite, 100))
-    await ctx.info(f"Top {limite} patrimônios — {cargo} ({uf or 'BR'})...")
+    await ctx.info(f"Top {limite} patrimônios — {cargo} ({uf or 'BR'}, {ano or 'todos'})...")
 
-    uf_clause = "AND TRIM(c.sg_uf) = ?" if uf else ""
+    # The bens table has column ano_eleicao too (from CSV). Use b.ano_eleicao.
+    clauses: list[str] = []
     params: list[Any] = [f"%{cargo}%"]
     if uf:
+        clauses.append("AND TRIM(c.sg_uf) = ?")
         params.append(uf.strip().upper())
-    params.append(limite)
+    if ano is not None:
+        clauses.append("AND CAST(b.ano_eleicao AS INTEGER) = ?")
+        params.append(int(ano))
+    clauses.append(f"LIMIT {limite}")
 
     sql = (
-        "SELECT c.sq_candidato, c.nm_urna_candidato, c.ds_cargo, c.sg_partido, "
-        "c.sg_uf, c.nm_ue, SUM(b.vr_bem_candidato) AS total "
+        "SELECT b.ano_eleicao, c.sq_candidato, c.nm_urna_candidato, c.ds_cargo, "
+        "c.sg_partido, c.sg_uf, c.nm_ue, "
+        f"SUM({_VR_PARSE}) AS total "
         f'FROM "{DATASET_TABLE}" b '
-        'JOIN "candidatos_2024" c USING (sq_candidato) '
+        'JOIN "candidatos" c USING (sq_candidato) '
         "WHERE strip_accents(c.ds_cargo) ILIKE strip_accents(?) "
-        f"{uf_clause} "
-        "GROUP BY c.sq_candidato, c.nm_urna_candidato, c.ds_cargo, "
-        "c.sg_partido, c.sg_uf, c.nm_ue "
-        "ORDER BY total DESC LIMIT ?"
+        f"{' '.join(clauses[:-1])} "
+        "GROUP BY b.ano_eleicao, c.sq_candidato, c.nm_urna_candidato, "
+        "c.ds_cargo, c.sg_partido, c.sg_uf, c.nm_ue "
+        f"ORDER BY total DESC NULLS LAST {clauses[-1]}"
     )
 
-    # Requires attaching candidatos DB; do a cross-DB ATTACH
     try:
         rows = await _execute_with_candidatos_attached(sql, params)
     except Exception as exc:
@@ -128,28 +160,27 @@ async def top_patrimonios_cargo(
 
     table = [
         (
-            (r.get("nm_urna_candidato") or "—")[:28],
-            (r.get("ds_cargo") or "—")[:15],
+            str(r.get("ano_eleicao") or "—"),
+            (r.get("nm_urna_candidato") or "—")[:26],
+            (r.get("ds_cargo") or "—")[:14],
             r.get("sg_partido") or "—",
             r.get("sg_uf") or "—",
-            (r.get("nm_ue") or "—")[:18],
-            format_brl(float(r.get("total") or 0)),
+            (r.get("nm_ue") or "—")[:16],
+            format_brl(_parse_br_number(r.get("total"))),
         )
         for r in rows
     ]
-    return (
-        f"**Top {len(rows)} patrimônios declarados — {cargo}"
-        f"{' / ' + uf if uf else ''}**\n\n"
-        + markdown_table(
-            ["Nome urna", "Cargo", "Partido", "UF", "Município", "Patrimônio"],
-            table,
-        )
+    titulo = f"{cargo}{' / ' + uf if uf else ''} — {ano or 'todos os anos'}"
+    return f"**Top {len(rows)} patrimônios declarados — {titulo}**\n\n" + markdown_table(
+        ["Ano", "Nome urna", "Cargo", "Partido", "UF", "Município", "Patrimônio"],
+        table,
     )
 
 
 async def resumo_patrimonio_partido(
     ctx: Context,
     cargo: str = "PREFEITO",
+    ano: int | None = None,
 ) -> str:
     """Patrimônio total declarado por partido num cargo.
 
@@ -157,22 +188,29 @@ async def resumo_patrimonio_partido(
 
     Args:
         cargo: Cargo filtrado.
+        ano: Ano eleitoral opcional.
 
     Returns:
         Tabela com partido, candidatos com bens, valor total e médio.
     """
-    await ctx.info(f"Agregando patrimônio por partido — {cargo}...")
+    await ctx.info(f"Agregando patrimônio por partido — {cargo} (ano={ano})...")
+    extra = ""
+    extra_params: list[Any] = []
+    if ano is not None:
+        extra = " AND CAST(b.ano_eleicao AS INTEGER) = ?"
+        extra_params = [int(ano)]
     sql = (
         "SELECT c.sg_partido, COUNT(DISTINCT c.sq_candidato) AS candidatos_c_bens, "
-        "SUM(b.vr_bem_candidato) AS total, "
-        "AVG(b.vr_bem_candidato) AS media_bem "
+        f"SUM({_VR_PARSE}) AS total, "
+        f"AVG({_VR_PARSE}) AS media_bem "
         f'FROM "{DATASET_TABLE}" b '
-        'JOIN "candidatos_2024" c USING (sq_candidato) '
+        'JOIN "candidatos" c USING (sq_candidato) '
         "WHERE strip_accents(c.ds_cargo) ILIKE strip_accents(?) "
-        "GROUP BY c.sg_partido ORDER BY total DESC LIMIT 30"
+        f"{extra} "
+        "GROUP BY c.sg_partido ORDER BY total DESC NULLS LAST LIMIT 30"
     )
     try:
-        rows = await _execute_with_candidatos_attached(sql, [f"%{cargo}%"])
+        rows = await _execute_with_candidatos_attached(sql, [f"%{cargo}%", *extra_params])
     except Exception as exc:
         return f"ERRO ao juntar com tse_candidatos ({type(exc).__name__}): {exc}"
 
@@ -183,49 +221,61 @@ async def resumo_patrimonio_partido(
         (
             r.get("sg_partido") or "—",
             format_number_br(int(r.get("candidatos_c_bens") or 0), 0),
-            format_brl(float(r.get("total") or 0)),
-            format_brl(float(r.get("media_bem") or 0)),
+            format_brl(_parse_br_number(r.get("total"))),
+            format_brl(_parse_br_number(r.get("media_bem"))),
         )
         for r in rows
     ]
-    return f"**Patrimônio por partido — {cargo}**\n\n" + markdown_table(
+    titulo = f"{cargo} — {ano or 'todos os anos'}"
+    return f"**Patrimônio por partido — {titulo}**\n\n" + markdown_table(
         ["Partido", "Candidatos c/ bens", "Patrimônio total", "Média por bem"],
         table,
     )
 
 
-async def resumo_tipos_bens(ctx: Context, top: int = 20) -> str:
+async def resumo_tipos_bens(
+    ctx: Context,
+    ano: int | None = None,
+    top: int = 20,
+) -> str:
     """Distribuição de bens declarados por tipo (imóvel, veículo, etc.).
 
     Args:
+        ano: Ano eleitoral opcional (2014-2024). Default: todos.
         top: Número de tipos no ranking.
 
     Returns:
         Tabela ordenada por valor total declarado.
     """
     top = max(1, min(top, 50))
-    await ctx.info("Agregando por tipo de bem...")
+    await ctx.info(f"Agregando por tipo de bem (ano={ano})...")
+    where = "1=1"
+    params: list[Any] = []
+    if ano is not None:
+        where = "CAST(ano_eleicao AS INTEGER) = ?"
+        params.append(int(ano))
     sql = (
         "SELECT ds_tipo_bem_candidato, COUNT(*) AS n, "
-        "SUM(vr_bem_candidato) AS total, "
-        "AVG(vr_bem_candidato) AS media "
-        f'FROM "{DATASET_TABLE}" '
-        "GROUP BY ds_tipo_bem_candidato ORDER BY total DESC "
+        f"SUM({_VR_PARSE}) AS total, "
+        f"AVG({_VR_PARSE}) AS media "
+        f'FROM "{DATASET_TABLE}" WHERE {where} '
+        "GROUP BY ds_tipo_bem_candidato ORDER BY total DESC NULLS LAST "
         f"LIMIT {top}"
     )
-    rows = await executar_query(DATASET_SPEC, sql)
+    rows = await executar_query(DATASET_SPEC, sql, params)
     if not rows:
         return "Sem dados."
     table = [
         (
             (r.get("ds_tipo_bem_candidato") or "—")[:40],
             format_number_br(int(r.get("n") or 0), 0),
-            format_brl(float(r.get("total") or 0)),
-            format_brl(float(r.get("media") or 0)),
+            format_brl(_parse_br_number(r.get("total"))),
+            format_brl(_parse_br_number(r.get("media"))),
         )
         for r in rows
     ]
-    return f"**TSE 2024 — bens por tipo (top {len(rows)})**\n\n" + markdown_table(
+    titulo = f"bens por tipo — {ano or 'todos os anos'}"
+    return f"**TSE — {titulo} (top {len(rows)})**\n\n" + markdown_table(
         ["Tipo", "Qtd", "Valor total", "Média"],
         table,
     )
@@ -262,9 +312,9 @@ async def _execute_with_candidatos_attached(sql: str, params: list[Any]) -> list
         con = duckdb.connect(bens_path, read_only=True)
         try:
             con.execute(f"ATTACH '{cand_path}' AS cand (READ_ONLY)")
-            # Rewrite bare table refs to include the attached DB schema
-            # (since candidatos_2024 is in the attached DB)
-            sql_rewritten = sql.replace('"candidatos_2024"', 'cand."candidatos_2024"')
+            # Rewrite bare view refs to include the attached DB schema
+            # (since the view `candidatos` lives in the attached DB)
+            sql_rewritten = sql.replace('"candidatos"', 'cand."candidatos"')
             cursor = con.execute(sql_rewritten, params)
             cols = [c[0] for c in cursor.description] if cursor.description else []
             return [dict(zip(cols, row, strict=False)) for row in cursor.fetchall()]
