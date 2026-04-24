@@ -123,6 +123,7 @@ async def logo(request: object) -> starlette.responses.Response:
 registry = FeatureRegistry()
 registry.discover("mcp_brasil.data")
 registry.discover("mcp_brasil.agentes")
+registry.discover("mcp_brasil.datasets")  # ADR-004 — gated by MCP_BRASIL_DATASETS env
 registry.mount_all(mcp)
 
 logger.info("\n%s", registry.summary())
@@ -184,6 +185,51 @@ async def planejar_consulta(query: str, ctx: Context) -> str:
     return await planejar_consulta_impl(query, catalog)
 
 
+@mcp.tool(tags={"meta", "datasets", "discovery"})
+async def listar_datasets_disponiveis(ctx: Context) -> str:
+    """Lista os datasets locais (ADR-004) disponíveis e seu estado de cache.
+
+    Features em ``datasets/`` dependem de cache local em DuckDB e só aparecem
+    quando listadas em ``MCP_BRASIL_DATASETS``. Esta tool reporta **todos**
+    os datasets registrados no projeto (ativos e inativos), com tamanho
+    aproximado, fonte, e se o cache local já foi baixado.
+
+    Returns:
+        Tabela markdown com id, habilitado, cached, linhas, tamanho, fonte.
+    """
+    from ._shared.datasets import get_registry, get_status
+    from ._shared.formatting import format_number_br, markdown_table
+
+    await ctx.info("Listando datasets disponíveis...")
+    reg = get_registry()
+    specs = reg.all_specs()
+    if not specs:
+        return "Nenhum dataset registrado neste projeto."
+
+    rows: list[tuple[str, ...]] = []
+    for spec in specs:
+        enabled = reg.is_enabled(spec.id)
+        status_info = await get_status(spec)
+        rows.append(
+            (
+                spec.id,
+                "✅" if enabled else "—",
+                "✅" if status_info["cached"] else "—",
+                format_number_br(status_info["row_count"], 0) if status_info["cached"] else "—",
+                f"{spec.approx_size_mb} MB" if spec.approx_size_mb else "—",
+                spec.source[:50],
+            )
+        )
+    return (
+        f"**Datasets locais (ADR-004) — {len(specs)} registrado(s)**\n\n"
+        + markdown_table(
+            ["ID", "Ativado", "Cached", "Linhas", "~Tamanho", "Fonte"],
+            rows,
+        )
+        + "\n\n*Para ativar um dataset: `MCP_BRASIL_DATASETS=id1,id2` no .env*"
+    )
+
+
 @mcp.tool(tags={"meta", "batch"})
 async def executar_lote(consultas: list[dict[str, object]], ctx: Context) -> str:
     """Executa múltiplas tools em uma única chamada, em paralelo.
@@ -217,6 +263,7 @@ _always_visible = [
     "recomendar_tools",
     "planejar_consulta",
     "executar_lote",
+    "listar_datasets_disponiveis",
 ]
 
 if TOOL_SEARCH == "bm25":

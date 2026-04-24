@@ -76,3 +76,27 @@ AUTHKIT_REQUIRED_SCOPES: list[str] = _parse_scopes(os.environ.get("AUTHKIT_REQUI
 
 # --- LLM Discovery (recomendar_tools) ---
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
+
+# --- Datasets (ADR-004: local cache com DuckDB) ---
+# Opt-in: lista CSV dos datasets a habilitar (ex: "spu_siapa,cnpj_rfb").
+# Datasets não listados NÃO são carregados nem expostos como tools.
+DATASETS_ENABLED: list[str] = _parse_scopes(os.environ.get("MCP_BRASIL_DATASETS", ""))
+
+# Diretório raiz do cache de datasets (XDG-compliant).
+DATASET_CACHE_DIR: str = os.environ.get(
+    "MCP_BRASIL_DATASET_CACHE_DIR",
+    os.path.join(os.path.expanduser("~"), ".cache", "mcp-brasil"),
+)
+
+# Modo de refresh: "auto" (respeita TTL), "never" (nunca baixa; falha se cache vazio),
+# "force" (força re-download em toda inicialização).
+DATASET_REFRESH_MODE: str = os.environ.get("MCP_BRASIL_DATASET_REFRESH", "auto").strip().lower()
+
+# Limite total de cache em GB (soft limit — futura feature de LRU eviction).
+DATASET_MAX_CACHE_GB: float = float(os.environ.get("MCP_BRASIL_DATASET_MAX_CACHE_GB", "20"))
+
+# Datasets com PII liberada. Default: todas as colunas PII mascaradas.
+DATASETS_ALLOW_PII: list[str] = _parse_scopes(os.environ.get("MCP_BRASIL_LGPD_ALLOW_PII", ""))
+
+# Timeout do download em segundos (datasets grandes precisam de mais).
+DATASET_DOWNLOAD_TIMEOUT: float = float(os.environ.get("MCP_BRASIL_DATASET_TIMEOUT", "600"))

@@ -52,6 +52,7 @@ dependencies = [
     "anthropic>=0.40",
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
+    "duckdb>=1.1",
 ]
 
 [project.optional-dependencies]
