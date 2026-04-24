@@ -135,8 +135,14 @@ def _download_to_file(
     """
     import httpx
 
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (compatible; mcp-brasil/dataset-loader) "
+            "AppleWebKit/537.36 Chrome/130.0 Safari/537.36"
+        )
+    }
     with (
-        httpx.Client(follow_redirects=True, timeout=timeout) as client,
+        httpx.Client(follow_redirects=True, timeout=timeout, headers=headers) as client,
         client.stream("GET", url) as resp,
     ):
         resp.raise_for_status()
