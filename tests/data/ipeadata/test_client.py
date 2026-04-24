@@ -42,7 +42,9 @@ async def test_valores_serie() -> None:
     )
     vs = await client.valores_serie("X")
     assert len(vs) == 2
-    assert vs[0].VALVALOR == 1.5
+    # Client reverses OData asc order → desc. Most recent first.
+    assert vs[0].VALVALOR == 2.0
+    assert vs[1].VALVALOR == 1.5
 
 
 @pytest.mark.asyncio
