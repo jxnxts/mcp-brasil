@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,39 @@ def _render_csv_options(opts: dict[str, Any]) -> str:
 _DUCKDB_ENCODINGS = {"utf-8", "utf8", "latin-1", "latin1", "utf-16", "utf16"}
 
 
+def _transcode_stream(
+    read_bytes: Iterable[bytes],
+    dest: Path,
+    source_encoding: str,
+) -> int:
+    """Write ``read_bytes`` iterable to ``dest``, transcoding if needed."""
+    import codecs
+
+    normalized = source_encoding.lower().replace("_", "-")
+    needs_transcode = normalized not in _DUCKDB_ENCODINGS
+
+    total = 0
+    with dest.open("wb") as f:
+        if not needs_transcode:
+            for chunk in read_bytes:
+                f.write(chunk)
+                total += len(chunk)
+        else:
+            decoder = codecs.getincrementaldecoder(source_encoding)(errors="replace")
+            for chunk in read_bytes:
+                text = decoder.decode(chunk)
+                if text:
+                    encoded = text.encode("utf-8")
+                    f.write(encoded)
+                    total += len(encoded)
+            tail = decoder.decode(b"", final=True)
+            if tail:
+                encoded = tail.encode("utf-8")
+                f.write(encoded)
+                total += len(encoded)
+    return total
+
+
 def _download_to_file(
     url: str,
     dest: Path,
@@ -99,37 +133,76 @@ def _download_to_file(
 
     Returns size in bytes written to disk.
     """
-    import codecs
-
     import httpx
 
-    normalized = source_encoding.lower().replace("_", "-")
-    needs_transcode = normalized not in _DUCKDB_ENCODINGS
-
-    total = 0
     with (
         httpx.Client(follow_redirects=True, timeout=timeout) as client,
         client.stream("GET", url) as resp,
-        dest.open("wb") as f,
     ):
         resp.raise_for_status()
-        if not needs_transcode:
-            for chunk in resp.iter_bytes(chunk_size=1_048_576):
-                f.write(chunk)
-                total += len(chunk)
-        else:
-            decoder = codecs.getincrementaldecoder(source_encoding)(errors="replace")
-            for chunk in resp.iter_bytes(chunk_size=1_048_576):
-                text = decoder.decode(chunk)
-                if text:
-                    encoded = text.encode("utf-8")
-                    f.write(encoded)
-                    total += len(encoded)
-            tail = decoder.decode(b"", final=True)
-            if tail:
-                encoded = tail.encode("utf-8")
-                f.write(encoded)
-                total += len(encoded)
+        return _transcode_stream(
+            resp.iter_bytes(chunk_size=1_048_576),
+            dest,
+            source_encoding,
+        )
+
+
+def _download_and_extract_zip(
+    url: str,
+    dest: Path,
+    *,
+    zip_member: str,
+    timeout: float,
+    source_encoding: str = "utf-8",
+) -> int:
+    """Download a ZIP from ``url``, extract ``zip_member`` to ``dest``.
+
+    The ZIP is first streamed to a temp file (zip central directory is at the
+    end, so streaming extraction of a specific member is impractical). Then
+    the chosen member is transcoded to UTF-8 if needed.
+    """
+    import zipfile
+
+    import httpx
+
+    zip_tmp = dest.with_suffix(".zip.tmp")
+    logger.info("Downloading ZIP %s to %s", url, zip_tmp)
+    with (
+        httpx.Client(follow_redirects=True, timeout=timeout) as client,
+        client.stream("GET", url) as resp,
+        zip_tmp.open("wb") as zf,
+    ):
+        resp.raise_for_status()
+        for chunk in resp.iter_bytes(chunk_size=4_194_304):
+            zf.write(chunk)
+
+    logger.info("Extracting %s from ZIP", zip_member)
+    with zipfile.ZipFile(zip_tmp) as z:
+        names = z.namelist()
+        if zip_member not in names:
+            # Support simple glob match: exact member preferred, otherwise
+            # the first member whose name contains the requested string.
+            match = next((n for n in names if zip_member in n), None)
+            if match is None:
+                raise RuntimeError(
+                    f"ZIP at {url!r} has no member matching {zip_member!r}. "
+                    f"Available: {names[:5]}..."
+                )
+            zip_member = match
+
+        with z.open(zip_member) as src:
+
+            def _chunks() -> Iterator[bytes]:
+                while True:
+                    chunk = src.read(1_048_576)
+                    if not chunk:
+                        return
+                    yield chunk
+
+            total = _transcode_stream(_chunks(), dest, source_encoding)
+
+    with contextlib.suppress(FileNotFoundError):
+        zip_tmp.unlink()
     return total
 
 
@@ -156,14 +229,23 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
         csv_tmp.unlink()
 
     logger.info("Loading dataset %s from %s", spec.id, spec.url)
-    logger.info("Downloading source to %s (encoding=%s) ...", csv_tmp, spec.source_encoding)
-    downloaded = _download_to_file(
-        spec.url,
-        csv_tmp,
-        timeout=_settings.DATASET_DOWNLOAD_TIMEOUT,
-        source_encoding=spec.source_encoding,
-    )
-    logger.info("Downloaded %d bytes; loading into DuckDB", downloaded)
+    if spec.zip_member:
+        downloaded = _download_and_extract_zip(
+            spec.url,
+            csv_tmp,
+            zip_member=spec.zip_member,
+            timeout=_settings.DATASET_DOWNLOAD_TIMEOUT,
+            source_encoding=spec.source_encoding,
+        )
+    else:
+        logger.info("Downloading to %s (encoding=%s) ...", csv_tmp, spec.source_encoding)
+        downloaded = _download_to_file(
+            spec.url,
+            csv_tmp,
+            timeout=_settings.DATASET_DOWNLOAD_TIMEOUT,
+            source_encoding=spec.source_encoding,
+        )
+    logger.info("Extracted %d bytes; loading into DuckDB", downloaded)
 
     # After transcode, the file on disk is always UTF-8. Any encoding option
     # declared by the spec for DuckDB must be overridden accordingly.

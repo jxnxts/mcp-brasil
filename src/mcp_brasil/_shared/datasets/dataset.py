@@ -42,6 +42,10 @@ class DatasetSpec:
     # transcodes the stream to UTF-8 on disk before handing it to DuckDB.
     # Common case: "cp1252" (Windows-1252 — smart quotes, en-dashes, etc.).
     source_encoding: str = "utf-8"
+    # When the source is a ZIP archive, name (or glob) of the CSV member to
+    # extract. The loader downloads the ZIP, extracts this member, transcodes
+    # if needed, and feeds it to DuckDB. Example: "consulta_cand_2024_BRASIL.csv".
+    zip_member: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id or not self.id.replace("_", "").isalnum():
