@@ -1,6 +1,14 @@
 # Catalogo de Features
 
-41 features · 363 tools · 87 resources · 62 prompts
+**50 features · 435 tools · 108 resources · 82 prompts**
+
+Organizadas em 3 modalidades:
+
+- **`data/`** (43 features) — REST passthrough; tools chamam APIs governamentais
+  em tempo real (seções por área abaixo)
+- **`datasets/`** (6 features) — Cache local DuckDB para CSVs/ZIPs grandes;
+  opt-in via `MCP_BRASIL_DATASETS` (ver [Datasets locais](#datasets-locais))
+- **`agentes/`** (1 feature) — Agentes inteligentes; ver `redator` abaixo
 
 ---
 
@@ -725,3 +733,111 @@ Agente inteligente para redacao oficial brasileira — oficio, despacho, memoran
 **Resources:** 7 templates de documentos + 3 documentos normativos (manual de redacao, pronomes, fechos)
 
 **Chave:** Nenhuma
+
+---
+
+## Datasets locais
+
+Features opt-in que baixam CSVs/ZIPs grandes para DuckDB embedded e expõem SQL via tools canned.
+Ative com `MCP_BRASIL_DATASETS=tse_candidatos,tse_bens,...` no `.env`. Ver o
+[guia completo](../guide/datasets.md).
+
+### `spu_siapa` — SPU SIAPA completo (8 tools)
+
+Imóveis da União consolidados (~813k linhas, dominiais + uso especial).
+Fonte: SPU via painel Patrimônio de Todos.
+
+| Tool | Descrição |
+|------|-----------|
+| `spu_siapa_info_spu_siapa` | Estado do cache local |
+| `spu_siapa_valores_distintos_siapa` | Valores reais de coluna categórica |
+| `spu_siapa_buscar_imoveis_siapa` | Filtra por UF, município, regime, conceituação, classe, RIP |
+| `spu_siapa_resumo_regime_siapa` | Agrega por regime de utilização |
+| `spu_siapa_resumo_conceituacao_siapa` | Agrega por conceituação (marinha, marginal, ...) |
+| `spu_siapa_resumo_uf_siapa` | Panorama nacional por UF |
+| `spu_siapa_top_municipios_siapa` | Top N municípios de uma UF |
+| `spu_siapa_refrescar_spu_siapa` | Força re-download |
+
+**Chave:** Nenhuma · **Opt-in:** `MCP_BRASIL_DATASETS=spu_siapa` · **~220MB ZIP**
+
+---
+
+### `tse_candidatos` — TSE candidatos 2014-2024 (8 tools)
+
+~4M candidatos de todas as eleições 2014-2024 (municipais e federais) via UNION ALL BY NAME.
+
+| Tool | Descrição |
+|------|-----------|
+| `tse_candidatos_info_tse_candidatos` | Estado do cache |
+| `tse_candidatos_valores_distintos_candidatos` | Valores reais de colunas categóricas |
+| `tse_candidatos_buscar_candidatos` | Filtros: nome, UF, município, cargo, partido, situação, gênero, ano |
+| `tse_candidatos_resumo_cargo_partido` | Eleitos por partido num cargo/ano |
+| `tse_candidatos_resumo_perfil_eleitos` | Perfil demográfico dos eleitos (gênero, raça, escolaridade) |
+| `tse_candidatos_top_municipios_candidatos` | Top municípios de uma UF |
+| `tse_candidatos_ranking_anual_eleitos` | Série histórica 2014-2024 de candidaturas e eleitos |
+| `tse_candidatos_refrescar_tse_candidatos` | Força re-download |
+
+**Chave:** Nenhuma · **PII:** CPF, título eleitoral, email (mascarados por default)
+
+---
+
+### `tse_bens` — TSE bens declarados 2014-2024 (5 tools)
+
+Bens declarados por candidatos em 6 ciclos eleitorais. Join via `sq_candidato` com `tse_candidatos` (cross-DB).
+
+| Tool | Descrição |
+|------|-----------|
+| `tse_bens_info_tse_bens` | Estado do cache |
+| `tse_bens_buscar_bens_candidato` | Detalhe de todos os bens de um candidato |
+| `tse_bens_top_patrimonios_cargo` | Ranking por patrimônio (JOIN com candidatos) |
+| `tse_bens_resumo_patrimonio_partido` | Patrimônio agregado por partido |
+| `tse_bens_resumo_tipos_bens` | Distribuição por tipo (imóvel, veículo, ações) |
+
+**Chave:** Nenhuma · **Requer também:** `tse_candidatos` (para joins)
+
+---
+
+### `tse_votacao` — TSE votação 2014-2024 (6 tools)
+
+Votos recebidos por candidato × município × zona em 6 eleições. Dataset **grande** (~1.6GB).
+
+| Tool | Descrição |
+|------|-----------|
+| `tse_votacao_info_tse_votacao` | Estado do cache |
+| `tse_votacao_votos_candidato` | Votos de um candidato em todos os municípios |
+| `tse_votacao_top_votados_cargo` | Ranking dos mais votados num cargo |
+| `tse_votacao_ranking_municipio` | Ranking de candidatos num município |
+| `tse_votacao_evolucao_partido` | Série histórica de votos de um partido |
+| `tse_votacao_soma_votos_uf` | Votos totais por UF num cargo/ano |
+
+**Chave:** Nenhuma · **Opt-in:** `MCP_BRASIL_DATASETS=tse_votacao` · **~1.6GB, 5-10min primeira carga**
+
+---
+
+### `tse_redes_sociais` — TSE redes sociais 2018-2024 (4 tools)
+
+URLs de Instagram/Facebook/Twitter/TikTok/YouTube/Kwai declaradas por candidatos.
+
+| Tool | Descrição |
+|------|-----------|
+| `tse_redes_sociais_info_tse_redes_sociais` | Estado do cache |
+| `tse_redes_sociais_redes_do_candidato` | URLs de um candidato, classificadas por plataforma |
+| `tse_redes_sociais_redes_por_partido` | Distribuição de redes por partido (JOIN) |
+| `tse_redes_sociais_top_redes_por_ano` | Plataformas mais usadas num ano |
+
+**Chave:** Nenhuma · **Requer também:** `tse_candidatos` (para join opcional)
+
+---
+
+### `tse_fefc` — TSE Fundo Eleitoral 2020/2024 (4 tools)
+
+Distribuição do Fundo Especial de Financiamento de Campanha (FEFC) por partido × gênero.
+
+| Tool | Descrição |
+|------|-----------|
+| `tse_fefc_info_tse_fefc` | Estado do cache |
+| `tse_fefc_fefc_por_partido` | Ranking de partidos por FEFC recebido |
+| `tse_fefc_fefc_por_partido_genero` | Auditoria da cota de 30% para candidatas mulheres |
+| `tse_fefc_valores_distintos_fefc` | Valores únicos de colunas categóricas |
+
+**Chave:** Nenhuma · **Anos disponíveis:** 2020 e 2024 (TSE pulou 2022)

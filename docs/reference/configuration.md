@@ -18,14 +18,27 @@
 | `MCP_BRASIL_HTTP_TIMEOUT` | `30.0` | Timeout HTTP em segundos |
 | `MCP_BRASIL_HTTP_MAX_RETRIES` | `3` | Maximo de retentativas HTTP |
 
+### Datasets locais
+
+| Variavel | Default | Descricao |
+|----------|---------|-----------|
+| `MCP_BRASIL_DATASETS` | "" | Lista CSV de datasets locais a ativar. Ex: `spu_siapa,tse_candidatos,tse_bens` |
+| `MCP_BRASIL_DATASET_CACHE_DIR` | `~/.cache/mcp-brasil` | Diretorio raiz do cache DuckDB |
+| `MCP_BRASIL_DATASET_REFRESH` | `auto` | `auto` (respeita TTL), `never` (so cache), `force` (sempre baixar) |
+| `MCP_BRASIL_DATASET_TIMEOUT` | `600` | Timeout (s) do download — aumente para datasets >500MB |
+| `MCP_BRASIL_DATASET_MAX_CACHE_GB` | `20` | Limite soft do cache total em GB |
+| `MCP_BRASIL_LGPD_ALLOW_PII` | "" | Lista CSV de datasets com PII liberada (default mascara CPF/email) |
+
+Ver [guia de Datasets locais](../guide/datasets.md) para detalhes.
+
 ### `MCP_BRASIL_TOOL_SEARCH`
 
-Controla como as 205 tools sao expostas ao LLM:
+Controla como as 435 tools sao expostas ao LLM:
 
 | Valor | Comportamento | Quando usar |
 |-------|---------------|-------------|
 | `bm25` | Filtra para top-10 mais relevantes por contexto; meta-tools sempre visiveis | Default — recomendado para a maioria dos usos |
-| `none` | Todas as 205 tools visiveis sem filtragem | Debug, ou quando o LLM tem contexto grande |
+| `none` | Todas as 435 tools visiveis sem filtragem | Debug, ou quando o LLM tem contexto grande |
 | `code_mode` | Experimental — discovery programatico via `get_tags`, `search`, `GetSchemas` | Testes avancados (requer `pydantic-monty`) |
 
 ## Chaves de API

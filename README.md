@@ -4,12 +4,12 @@
 
 # mcp-brasil
 
-**MCP Server para 44 APIs públicas brasileiras**
+**MCP Server para 50 fontes de dados públicas brasileiras**
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-375 tools · 93 resources · 66 prompts · 11 áreas temáticas
+435 tools · 108 resources · 82 prompts · 50 features · 11 áreas temáticas
 
 Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil — economia, legislação, transparência, judiciário, eleições, meio ambiente, saúde, segurança pública e mais.
 
@@ -23,10 +23,11 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 
 ## Features
 
-- **375 tools** em 44 features cobrindo 11 áreas — economia, legislativo, transparência, judiciário, eleitoral, ambiental, saúde, segurança pública, compras públicas, utilidades e mais
+- **435 tools** em 50 features cobrindo 11 áreas — economia, legislativo, transparência, judiciário, eleitoral, ambiental, saúde, segurança pública, compras públicas, utilidades e mais
+- **Datasets grandes com cache local** — SIAPA (~813k imóveis), TSE 2014-2024 (candidatos, bens, votação, redes sociais, FEFC) — SQL via DuckDB embedded, opt-in via env
 - **Cross-referencing** com `planejar_consulta` — cria planos de execução combinando múltiplas APIs (ex: gastos de um deputado + votações + proposições)
 - **Execução em lote** com `executar_lote` — dispara consultas em paralelo numa única chamada
-- **Smart discovery** — BM25 search transform filtra 363 tools para só mostrar as relevantes ao contexto
+- **Smart discovery** — BM25 search transform filtra 435 tools para só mostrar as relevantes ao contexto
 - **Auto-registry** — adicionar uma feature é criar uma pasta; zero configuração manual
 - **Async everywhere** — httpx async + Pydantic v2 + rate limiting com backoff
 
@@ -213,7 +214,31 @@ Conecte o server e faça perguntas em linguagem natural:
 | `diario_oficial` | Querido Diário + DOU — diários oficiais de 5.000+ cidades e da União | 11 |
 | `tabua_mares` | Tábua de Marés — previsão de marés para portos do litoral | 7 |
 
-> O server raiz também expõe 4 meta-tools: `listar_features`, `recomendar_tools`, `planejar_consulta` e `executar_lote`.
+### Datasets locais (opt-in via env)
+
+Features que baixam CSVs/ZIPs grandes (~100MB–1,6GB) para **DuckDB embedded local**
+e expõem SQL via tools canned. Ativadas apenas quando listadas em `MCP_BRASIL_DATASETS`.
+Primeira carga: minutos (download + ingest); subsequentes: ms.
+
+| Feature | Fonte | Período | Tools |
+|---------|-------|---------|:-----:|
+| `spu_siapa` | SPU — imóveis da União (SIAPA completo, 813k imóveis com dominiais + uso especial) | 2026 snapshot | 8 |
+| `tse_candidatos` | TSE — candidatos de todas as eleições (~4M registros) | 2014-2024 | 8 |
+| `tse_bens` | TSE — bens declarados por candidatos, join via `sq_candidato` | 2014-2024 | 5 |
+| `tse_votacao` | TSE — votos por candidato × município × zona | 2014-2024 | 6 |
+| `tse_redes_sociais` | TSE — URLs Instagram/Facebook/Twitter dos candidatos | 2018-2024 | 4 |
+| `tse_fefc` | TSE — Fundo Eleitoral Especial (distribuição partido × gênero) | 2020, 2024 | 4 |
+
+Ative com:
+```bash
+# .env
+MCP_BRASIL_DATASETS=tse_candidatos,tse_bens,tse_votacao
+```
+
+Ver [guia de Datasets locais](docs/guide/datasets.md) para detalhes de uso.
+
+> O server raiz também expõe 5 meta-tools: `listar_features`, `recomendar_tools`,
+> `planejar_consulta`, `executar_lote` e `listar_datasets_disponiveis`.
 
 ## Chaves de API
 
@@ -222,7 +247,7 @@ Conecte o server e faça perguntas em linguagem natural:
 | Portal da Transparência | Opcional | [Cadastro gratuito](https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email) |
 | DataJud/CNJ | Opcional | [Cadastro gratuito](https://datajud-wiki.cnj.jus.br/api-publica/acesso) |
 | Anúncios Eleitorais (Meta) | Opcional | [Meta Ad Library API](https://www.facebook.com/ads/library/api/) |
-| Todas as outras (36) | Nenhuma chave | — |
+| Todas as outras (47) | Nenhuma chave | — |
 
 Configure via variáveis de ambiente ou `.env`:
 
@@ -242,6 +267,11 @@ META_ACCESS_TOKEN=seu-token
 | `MCP_BRASIL_TOOL_SEARCH` | `bm25` | Modo de discovery: `bm25`, `code_mode` ou `none` |
 | `MCP_BRASIL_HTTP_TIMEOUT` | `30.0` | Timeout HTTP em segundos |
 | `MCP_BRASIL_HTTP_MAX_RETRIES` | `3` | Máximo de retentativas HTTP |
+| `MCP_BRASIL_DATASETS` | — | Lista CSV de datasets locais a ativar. Ex: `tse_candidatos,tse_bens` |
+| `MCP_BRASIL_DATASET_CACHE_DIR` | `~/.cache/mcp-brasil` | Diretório raiz do cache DuckDB |
+| `MCP_BRASIL_DATASET_REFRESH` | `auto` | `auto` (TTL), `never` (só cache) ou `force` (sempre baixar) |
+| `MCP_BRASIL_DATASET_TIMEOUT` | `600` | Timeout (s) do download de datasets grandes |
+| `MCP_BRASIL_LGPD_ALLOW_PII` | — | Lista CSV de datasets com PII liberada (ex: `tse_candidatos`) |
 
 ## Documentação
 
@@ -249,7 +279,8 @@ META_ACCESS_TOKEN=seu-token
 |--------|-----------|
 | [Quick Start](docs/guide/quickstart.md) | Instalação e configuração em 2 minutos |
 | [Arquitetura](docs/concepts/architecture.md) | Como o projeto funciona por dentro |
-| [Catálogo de Features](docs/reference/features.md) | Todas as 41 features e 363 tools |
+| [Catálogo de Features](docs/reference/features.md) | Todas as 50 features e 435 tools |
+| [Datasets locais (DuckDB)](docs/guide/datasets.md) | SIAPA + TSE 2014-2024 via SQL embedded |
 | [Smart Tools](docs/reference/smart-tools.md) | Meta-tools: planner, batch, discovery |
 | [Adicionando Features](docs/guide/adding-features.md) | Guia para contribuir com novas APIs |
 | [Configuração](docs/reference/configuration.md) | Variáveis de ambiente e opções |
@@ -282,7 +313,8 @@ O projeto usa **Package by Feature** com **Auto-Registry** — cada feature é u
 src/mcp_brasil/
 ├── server.py              # Auto-registry (nunca editado manualmente)
 ├── _shared/               # Utilitários compartilhados
-├── data/                  # 40 features de consulta a APIs
+│   └── datasets/          # Infra DuckDB local
+├── data/                  # 43 features — REST passthrough
 │   ├── ibge/
 │   │   ├── __init__.py    # FEATURE_META
 │   │   ├── server.py      # FastMCP instance
@@ -292,9 +324,21 @@ src/mcp_brasil/
 │   │   └── constants.py   # URLs, códigos
 │   ├── bacen/
 │   └── ...
-└── agentes/               # Features de agentes inteligentes
+├── datasets/              # 6 features — cache local DuckDB (opt-in via env)
+│   ├── spu_siapa/         # SIAPA 813k imóveis
+│   ├── tse_candidatos/    # TSE candidatos 2014-2024
+│   └── ...
+└── agentes/               # 1 feature — agentes inteligentes
     └── redator/
 ```
+
+Três modalidades de feature coexistem:
+
+- **`data/`** — REST passthrough: HTTP async → Pydantic → tool formatada
+- **`datasets/`** — DuckDB embedded local: CSVs/ZIPs grandes com SQL,
+  gated por `MCP_BRASIL_DATASETS`, cache em `~/.cache/mcp-brasil/`
+- **`agentes/`** — Agentes inteligentes: tools + prompts + resources
+  compondo fluxos complexos (ex: redação oficial)
 
 Para adicionar uma nova feature, basta criar o diretório seguindo a convenção — o registry descobre automaticamente.
 
