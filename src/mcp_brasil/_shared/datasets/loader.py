@@ -284,6 +284,13 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
     )
     con = duckdb.connect(str(tmp_path), read_only=False)
     try:
+        # Cap DuckDB memory to keep container under cgroup limit + force
+        # on-disk temp for any intermediate spill (prevents SIGKILL during
+        # large multi-source ingests like tse_candidatos/tse_bens).
+        with contextlib.suppress(duckdb.Error):
+            con.execute("PRAGMA memory_limit='3GB'")
+            con.execute(f"PRAGMA temp_directory='{ephemeral_dir}/duckdb-spill'")
+
         total_row_count = 0
         schema_reprs: list[str] = []
         for url, zip_member, suffix in sources:
@@ -309,6 +316,9 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
             schema_reprs.append(f"{table_name}:" + "|".join(f"{r[0]}:{r[1]}" for r in schema_rows))
             with contextlib.suppress(FileNotFoundError):
                 csv_tmp.unlink()
+            # Force flush to disk to free memory between large sources.
+            with contextlib.suppress(duckdb.Error):
+                con.execute("CHECKPOINT")
 
         # Multi-source: create consolidated UNION ALL BY NAME view.
         if spec.sources:

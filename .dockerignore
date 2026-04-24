@@ -12,7 +12,8 @@ tests/
 docs/
 !docs/assets/logo.png
 plan/
-scripts/
+scripts/*
+!scripts/warmup_datasets.py
 dist/
 build/
 *.egg-info
