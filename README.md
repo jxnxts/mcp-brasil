@@ -4,16 +4,16 @@
 
 # mcp-brasil
 
-**MCP Server para 66 fontes de dados públicas brasileiras**
+**MCP Server para 69 fontes de dados públicas brasileiras**
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-508 tools · 127 resources · 98 prompts · 66 features · 14 áreas temáticas
+525 tools · 130 resources · 101 prompts · 69 features · 15 áreas temáticas
 
 Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil — economia, legislação, transparência, judiciário, eleições, meio ambiente, saúde, educação, segurança pública, fiscal subnacional, aviação e mais.
 
-**62 APIs não requerem chave** · 4 usam chaves gratuitas (cadastro em 1 min)
+**65 APIs não requerem chave** · 4 usam chaves gratuitas (cadastro em 1 min)
 
 [Quick Start](#quick-start) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
 
@@ -23,11 +23,11 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 
 ## Features
 
-- **508 tools** em 66 features cobrindo 14 áreas — economia, legislativo, transparência, judiciário, eleitoral, ambiental, saúde, educação, segurança pública, compras públicas, fiscal subnacional, aviação, energia e mais
+- **525 tools** em 69 features cobrindo 15 áreas — economia, legislativo, transparência, judiciário, eleitoral, ambiental, saúde, educação, segurança pública, compras públicas, fiscal subnacional, aviação, energia e mais
 - **Datasets grandes com cache local** — SIAPA (~813k imóveis), TSE 2014-2024 (candidatos, bens, votação, redes sociais, FEFC), ANP preços de combustíveis, INEP Censo Escolar e ENEM, ISP-RJ segurança pública, ANAC aeronaves e voos regulares — SQL via DuckDB embedded, opt-in via env
 - **Cross-referencing** com `planejar_consulta` — cria planos de execução combinando múltiplas APIs (ex: gastos de um deputado + votações + proposições)
 - **Execução em lote** com `executar_lote` — dispara consultas em paralelo numa única chamada
-- **Smart discovery** — BM25 search transform filtra 508 tools para só mostrar as relevantes ao contexto
+- **Smart discovery** — BM25 search transform filtra 525 tools para só mostrar as relevantes ao contexto
 - **Auto-registry** — adicionar uma feature é criar uma pasta; zero configuração manual
 - **Async everywhere** — httpx async + Pydantic v2 + rate limiting com backoff
 
@@ -130,12 +130,13 @@ Conecte o server e faça perguntas em linguagem natural:
 |---------|-------|:-----:|
 | `ibge` | IBGE — estados, municípios, nomes, agregados estatísticos | 9 |
 
-### Legislativo
+### Legislativo e Executivo
 
 | Feature | Fonte | Tools |
 |---------|-------|:-----:|
 | `camara` | Câmara dos Deputados — deputados, proposições, votações, despesas | 11 |
 | `senado` | Senado Federal — senadores, matérias, votações, comissões | 26 |
+| `governadores` | Governadores de todos os estados em exercício (nome, partido, mandato) | 4 |
 
 ### Transparência e Fiscalização
 
@@ -229,6 +230,13 @@ Conecte o server e faça perguntas em linguagem natural:
 | `compras` | PNCP + ComprasNet/SIASG — licitações, contratos, pregões, CATMAT | 29 |
 | `transferegov` | TransfereGov — emendas parlamentares PIX | 5 |
 
+### Mercado Financeiro e Notícias
+
+| Feature | Fonte | Tools |
+|---------|-------|:-----:|
+| `b3` | Bolsa B3 (brapi.dev) — cotações ações/FIIs/BDRs, históricos, índices | 6 |
+| `noticias` | RSS agregado — Câmara, Senado, Agência Brasil, BCB | 4 |
+
 ### Dados Abertos e Utilidades
 
 | Feature | Fonte | Tools |
@@ -278,7 +286,8 @@ Ver [guia de Datasets locais](docs/guide/datasets.md) para detalhes de uso.
 | Portal da Transparência | Opcional | [Cadastro gratuito](https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email) |
 | DataJud/CNJ | Opcional | [Cadastro gratuito](https://datajud-wiki.cnj.jus.br/api-publica/acesso) |
 | Anúncios Eleitorais (Meta) | Opcional | [Meta Ad Library API](https://www.facebook.com/ads/library/api/) |
-| Todas as outras (60) | Nenhuma chave | — |
+| brapi.dev (B3) | Opcional | [Token gratuito](https://brapi.dev/dashboard) para índices e múltiplas ações |
+| Todas as outras (62) | Nenhuma chave | — |
 
 Configure via variáveis de ambiente ou `.env`:
 
@@ -310,7 +319,7 @@ META_ACCESS_TOKEN=seu-token
 |--------|-----------|
 | [Quick Start](docs/guide/quickstart.md) | Instalação e configuração em 2 minutos |
 | [Arquitetura](docs/concepts/architecture.md) | Como o projeto funciona por dentro |
-| [Catálogo de Features](docs/reference/features.md) | Todas as 64 features e 498 tools |
+| [Catálogo de Features](docs/reference/features.md) | Todas as 69 features e 525 tools |
 | [Datasets locais (DuckDB)](docs/guide/datasets.md) | SIAPA + TSE 2014-2024 via SQL embedded |
 | [Smart Tools](docs/reference/smart-tools.md) | Meta-tools: planner, batch, discovery |
 | [Adicionando Features](docs/guide/adding-features.md) | Guia para contribuir com novas APIs |

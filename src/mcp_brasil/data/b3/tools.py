@@ -46,13 +46,19 @@ async def cotacao_ativo(ticker: str) -> str:
 async def cotacoes_multiplas(tickers: str) -> str:
     """Cotações de múltiplos ativos em uma tabela.
 
+    Limite do tier gratuito brapi.dev: **até 3 tickers por chamada** sem token.
+    Para mais que 3, configure ``BRAPI_TOKEN``.
+
     Args:
         tickers: Símbolos separados por vírgula (ex: 'PETR4,VALE3,ITUB4').
     """
     clean = ",".join(t.strip().upper() for t in tickers.split(","))
     results = await client.cotacao(clean)
     if not results:
-        return "Nenhum ativo encontrado."
+        return (
+            "Nenhum ativo encontrado. Nota: tier gratuito brapi.dev aceita "
+            "até 3 tickers. Configure BRAPI_TOKEN para mais."
+        )
     rows = [
         (
             r.get("symbol") or "—",
@@ -127,7 +133,11 @@ async def top_ativos_volume(tipo: str = "stock", limite: int = 15) -> str:
 
 
 async def indices_b3() -> str:
-    """Cotações dos principais índices da B3 (Ibovespa, IFIX, etc.)."""
+    """Cotações dos principais índices da B3 (Ibovespa, IFIX, etc.).
+
+    **Requer BRAPI_TOKEN** (índices são endpoint restrito). Sem token,
+    retorna apenas o catálogo dos índices disponíveis.
+    """
     rows_out: list[tuple[Any, ...]] = []
     for symbol in ("^BVSP", "^IBRX", "^SMLL", "^IFIX"):
         results = await client.cotacao(symbol)
@@ -142,7 +152,14 @@ async def indices_b3() -> str:
                 )
             )
     if not rows_out:
-        return "Nenhum índice disponível."
+        return (
+            "**Índices B3** — não foi possível buscar cotações.\n\n"
+            "Índices requerem token gratuito do brapi.dev. "
+            "Configure `BRAPI_TOKEN` no `.env` ou consulte "
+            "https://brapi.dev/dashboard para obter.\n\n"
+            "**Catálogo disponível:**\n"
+            + "\n".join(f"- `{k}` — {v}" for k, v in INDICES_POPULARES.items())
+        )
     return "**Índices B3**\n\n" + markdown_table(
         ["Símbolo", "Descrição", "Pontos", "Var.%"], rows_out
     )
