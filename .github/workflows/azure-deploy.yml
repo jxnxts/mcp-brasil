@@ -49,6 +49,7 @@ jobs:
         run: |
           az acr build \
             --registry "$ACR_NAME" \
+            --resource-group "$AZURE_RG" \
             --image "$IMAGE_NAME:${{ steps.tag.outputs.tag }}" \
             --image "$IMAGE_NAME:latest" \
             --file Dockerfile .

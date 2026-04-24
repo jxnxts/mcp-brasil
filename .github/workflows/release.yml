@@ -115,6 +115,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           az acr build \
             --registry "$ACR_NAME" \
+            --resource-group "$AZURE_RG" \
             --image "$IMAGE_NAME:$VERSION" \
             --image "$IMAGE_NAME:latest" \
             --file Dockerfile .
