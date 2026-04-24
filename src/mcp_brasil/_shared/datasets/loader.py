@@ -282,20 +282,27 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
         tmp_path,
         path,
     )
-    con = duckdb.connect(str(tmp_path), read_only=False)
-    try:
-        # Cap DuckDB memory to keep container under cgroup limit + force
-        # on-disk temp for any intermediate spill (prevents SIGKILL during
-        # large multi-source ingests like tse_candidatos/tse_bens).
-        with contextlib.suppress(duckdb.Error):
-            con.execute("PRAGMA memory_limit='3GB'")
-            con.execute(f"PRAGMA temp_directory='{ephemeral_dir}/duckdb-spill'")
 
-        total_row_count = 0
-        schema_reprs: list[str] = []
+    def _open_con() -> duckdb.DuckDBPyConnection:
+        """Open DuckDB with tight memory caps.
+
+        Each iteration uses a fresh connection so Python GC reclaims
+        DuckDB's buffer pool between sources — PRAGMA memory_limit alone
+        doesn't release pages held by the arena allocator.
+        """
+        c = duckdb.connect(str(tmp_path), read_only=False)
+        with contextlib.suppress(duckdb.Error):
+            c.execute("PRAGMA memory_limit='2GB'")
+            c.execute(f"PRAGMA temp_directory='{ephemeral_dir}/duckdb-spill'")
+            c.execute("PRAGMA threads=2")
+        return c
+
+    total_row_count = 0
+    schema_reprs: list[str] = []
+    con: duckdb.DuckDBPyConnection | None = None
+    try:
         for url, zip_member, suffix in sources:
-            # CSV temp also lives in the ephemeral dir (avoids SMB churn and
-            # the extra round-trip of an mmap-unfriendly filesystem).
+            # CSV temp lives in the ephemeral dir (no SMB churn, fast I/O).
             csv_tmp = ephemeral_dir / f"source-{suffix or 'single'}.csv"
             if csv_tmp.exists():
                 csv_tmp.unlink()
@@ -309,16 +316,26 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
             )
             table_name = f"{spec.table}_{suffix}" if suffix else spec.table
             read_csv = _render_read_csv_call(csv_tmp, spec.csv_options)
-            con.execute(f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT * FROM {read_csv}')
-            row = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()
-            total_row_count += int(row[0]) if row else 0
-            schema_rows = con.execute(f'DESCRIBE "{table_name}"').fetchall()
-            schema_reprs.append(f"{table_name}:" + "|".join(f"{r[0]}:{r[1]}" for r in schema_rows))
+
+            con = _open_con()
+            try:
+                con.execute(f'CREATE OR REPLACE TABLE "{table_name}" AS SELECT * FROM {read_csv}')
+                row = con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()
+                total_row_count += int(row[0]) if row else 0
+                schema_rows = con.execute(f'DESCRIBE "{table_name}"').fetchall()
+                schema_reprs.append(
+                    f"{table_name}:" + "|".join(f"{r[0]}:{r[1]}" for r in schema_rows)
+                )
+                with contextlib.suppress(duckdb.Error):
+                    con.execute("CHECKPOINT")
+            finally:
+                con.close()
             with contextlib.suppress(FileNotFoundError):
                 csv_tmp.unlink()
-            # Force flush to disk to free memory between large sources.
-            with contextlib.suppress(duckdb.Error):
-                con.execute("CHECKPOINT")
+            logger.info("Ingested %s; connection closed", table_name)
+
+        # Final pass: open once to build the UNION ALL BY NAME view.
+        con = _open_con()
 
         # Multi-source: create consolidated UNION ALL BY NAME view.
         if spec.sources:
@@ -329,7 +346,8 @@ def _load_into_duckdb(spec: DatasetSpec) -> Manifest:
         schema_repr = "||".join(schema_reprs)
         row_count = total_row_count
     finally:
-        con.close()
+        if con is not None:
+            con.close()
 
     # Move the completed DuckDB file from ephemeral to the persistent cache.
     # shutil.move handles cross-filesystem (tmpfs -> SMB) transparently.
