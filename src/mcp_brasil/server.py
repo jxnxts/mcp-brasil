@@ -94,7 +94,7 @@ mcp = FastMCP(
     lifespan=http_lifespan,
     auth=auth,
     icons=[mt.Icon(src=_LOGO_URL, mimeType="image/png")],
-    website_url="https://github.com/jxnxts/mcp-brasil",
+    website_url="https://github.com/Mcp-Brasil/mcp-brasil",
 )
 
 # Add middleware

@@ -15,7 +15,7 @@ CONSULTA_AUDITORIA_URL = "https://consultaauditoria.saude.gov.br"
 
 RATE_LIMIT_DELAY = 3.0  # seconds between scraping requests
 
-USER_AGENT = "mcp-brasil/0.6 (+https://github.com/jxnxts/mcp-brasil)"
+USER_AGENT = "mcp-brasil/0.6 (+https://github.com/Mcp-Brasil/mcp-brasil)"
 
 HEADERS: dict[str, str] = {
     "User-Agent": USER_AGENT,

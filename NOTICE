@@ -1,0 +1,64 @@
+mcp-brasil
+Copyright (c) 2025-2026 MCP Brasil e contribuidores
+
+This product is licensed under the MIT License (see LICENSE file).
+
+================================================================================
+ESCOPO DA LICENÇA MIT
+================================================================================
+
+A licença MIT cobre EXCLUSIVAMENTE o código-fonte deste repositório (Python,
+configurações, documentação produzida pelos contribuidores).
+
+A licença MIT NÃO cobre:
+
+  1. DADOS retornados pelas APIs de terceiros conectadas pelo servidor.
+     Cada fonte (IBGE, BACEN, CNJ, TSE, DataSUS, ANVISA, etc.) tem termos
+     próprios de uso — ver SOURCES.md para detalhamento por fonte.
+
+  2. MARCAS, LOGOS e NOMES de instituições públicas brasileiras citadas no
+     código, documentação ou catálogo de tools. Tais marcas pertencem aos
+     respectivos titulares e seu uso por este projeto é apenas referencial,
+     sem implicar endosso ou autorização.
+
+  3. USO ABUSIVO ou ILEGAL do software. Ver ACCEPTABLE_USE.md para a Política
+     de Uso Aceitável, que contém vedações vinculantes derivadas da legislação
+     brasileira (LGPD, Lei Eleitoral, Lei de Acesso à Informação, etc.).
+
+================================================================================
+NÃO-OFICIALIDADE
+================================================================================
+
+mcp-brasil é um projeto INDEPENDENTE da comunidade open source. NÃO é um
+serviço oficial do governo brasileiro nem de qualquer das instituições cujos
+dados ele torna acessíveis. A presença do termo "Brasil" no nome reflete o
+objeto (dados públicos brasileiros) e não vinculação institucional.
+
+================================================================================
+ATRIBUIÇÃO E DISCLAIMERS DE FONTE
+================================================================================
+
+Ao redistribuir, integrar ou construir produtos sobre este software:
+
+  - Mantenha este NOTICE, o LICENSE e a referência a SOURCES.md.
+  - Atribua corretamente cada fonte de dado conforme sua licença individual.
+  - Respeite ACCEPTABLE_USE.md.
+  - Avise seus usuários finais que dados retornados podem conter erros,
+    estar desatualizados, ou serem alucinações geradas por modelos de IA
+    intermediários — VERIFIQUE NA FONTE OFICIAL antes de uso jornalístico,
+    judicial, médico ou decisório.
+
+================================================================================
+LIMITAÇÃO DE RESPONSABILIDADE
+================================================================================
+
+Os mantenedores deste projeto FORNECEM o software "AS IS" (como está) e NÃO
+assumem responsabilidade por:
+
+  - Disponibilidade, precisão, completude ou atualidade dos dados de terceiros
+  - Decisões tomadas com base em respostas de agentes de IA que utilizam este
+    servidor
+  - Uso por terceiros em violação à legislação brasileira ou a esta Política
+  - Mudanças em termos de uso, endpoints ou disponibilidade das APIs upstream
+
+Reportes de problemas: https://github.com/Mcp-Brasil/mcp-brasil/issues

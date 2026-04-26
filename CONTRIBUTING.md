@@ -5,7 +5,7 @@ Obrigado pelo interesse em contribuir!
 ## Getting Started
 
 ```bash
-git clone https://github.com/jxnxts/mcp-brasil.git
+git clone https://github.com/Mcp-Brasil/mcp-brasil.git
 cd mcp-brasil
 make dev        # Instala dependências de dev
 make ci         # Roda lint + mypy + testes

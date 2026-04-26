@@ -106,7 +106,7 @@ Abra um novo chat no Claude.ai e pergunte:
 
 O `mcp-brasil` é um projeto open-source que conecta AI agents a dados governamentais do Brasil via [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
-- **GitHub:** [github.com/mcp-brasil](https://github.com/jxnxts/mcp-brasil)
+- **GitHub:** [github.com/mcp-brasil](https://github.com/Mcp-Brasil/mcp-brasil)
 - **PyPI:** [pypi.org/project/mcp-brasil](https://pypi.org/project/mcp-brasil)
 - **Licença:** MIT
 

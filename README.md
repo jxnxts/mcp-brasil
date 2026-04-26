@@ -7,7 +7,7 @@
 **MCP Server para 70 fontes de dados públicas brasileiras**
 
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT (code)](https://img.shields.io/badge/code-MIT-yellow.svg)](LICENSE) [![Sources: see SOURCES.md](https://img.shields.io/badge/data-see%20SOURCES.md-blue)](SOURCES.md) [![AUP](https://img.shields.io/badge/use-ACCEPTABLE__USE.md-orange)](ACCEPTABLE_USE.md)
 
 533 tools · 131 resources · 102 prompts · 70 features · 15 áreas temáticas
 
@@ -18,6 +18,10 @@ Conecte AI agents (Claude, GPT, Copilot, etc.) a dados governamentais do Brasil 
 [Quick Start](#quick-start) · [Fontes de dados](#fontes-de-dados) · [Documentação](#documentação) · [Desenvolvimento](#desenvolvimento)
 
 </div>
+
+---
+
+> ⚠️ **Projeto independente.** `mcp-brasil` **NÃO** é serviço oficial do governo brasileiro nem de qualquer das instituições cujos dados ele torna acessíveis. A licença MIT cobre apenas o **código** — cada fonte de dado tem sua própria licença ([SOURCES.md](SOURCES.md)) e o uso do servidor está sujeito à [Política de Uso Aceitável](ACCEPTABLE_USE.md). Antes de uso comercial, jornalístico ou decisório, **leia ambos**.
 
 ---
 
@@ -333,7 +337,7 @@ META_ACCESS_TOKEN=seu-token
 ## Desenvolvimento
 
 ```bash
-git clone https://github.com/jxnxts/mcp-brasil.git
+git clone https://github.com/Mcp-Brasil/mcp-brasil.git
 cd mcp-brasil
 make dev              # Instalar dependências (prod + dev)
 make test             # Rodar todos os testes
@@ -398,18 +402,33 @@ Este projeto integra um número significativo de APIs governamentais brasileiras
 
 Este é um projeto open-source da comunidade — se encontrar algo quebrado ou que possa ser melhorado, **abra uma issue ou envie um PR**. O objetivo é tornar dados públicos brasileiros acessíveis via IA, juntos.
 
-Todos os dados vêm de APIs oficiais do governo brasileiro — o server não gera, modifica ou editorializa nenhum dado.
+Todos os dados vêm de APIs oficiais do governo brasileiro — o server não gera, modifica ou editorializa nenhum dado. **No entanto, modelos de IA que consomem este servidor podem alucinar, distorcer ou interpretar incorretamente respostas — VERIFIQUE NA FONTE OFICIAL antes de uso jornalístico, judicial, médico ou decisório.**
+
+### Não-oficialidade
+
+`mcp-brasil` é projeto **independente**. NÃO é serviço, programa ou parceria do Governo Federal, Ministérios, Agências, Tribunais ou de qualquer das instituições cujos dados acessa. Tampouco é endossado por Anthropic, OpenAI, GitHub, ou pelos modelos de IA clientes. A palavra "Brasil" no nome refere-se ao objeto (dados públicos brasileiros) e não a vinculação institucional.
+
+### Conformidade legal
+
+Antes de operar este servidor — especialmente em cenários comerciais, com volume, em período eleitoral, ou envolvendo dados sensíveis (saúde, judicial, eleitoral) — **leia obrigatoriamente**:
+
+- [SOURCES.md](SOURCES.md) — licença e disclaimer de cada uma das 70 fontes
+- [ACCEPTABLE_USE.md](ACCEPTABLE_USE.md) — Política de Uso Aceitável (vedações sob LGPD art. 11 §4, Lei 9.504/97, Res. CNJ 446/2022, etc.)
+- [NOTICE](NOTICE) — escopo da licença MIT e atribuições
 
 ## Licença
 
-MIT
+- **Código deste repositório:** [MIT](LICENSE)
+- **Dados retornados pelas APIs:** licenças variadas — ver [SOURCES.md](SOURCES.md)
+- **Uso do servidor:** sujeito à [Política de Uso Aceitável](ACCEPTABLE_USE.md)
+- **Atribuições e disclaimers:** [NOTICE](NOTICE)
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=jxnxts%2Fmcp-brasil&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=Mcp-Brasil%2Fmcp-brasil&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=jxnxts/mcp-brasil&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=jxnxts/mcp-brasil&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=jxnxts/mcp-brasil&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Mcp-Brasil/mcp-brasil&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Mcp-Brasil/mcp-brasil&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Mcp-Brasil/mcp-brasil&type=date&legend=top-left" />
  </picture>
 </a>

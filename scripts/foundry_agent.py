@@ -12,7 +12,7 @@ Usage:
 Environment variables:
     PROJECT_ENDPOINT   — Azure AI Foundry project endpoint
     MODEL_DEPLOYMENT   — Model deployment name (default: gpt-4o)
-    MCP_BRASIL_URL     — mcp-brasil server URL (default: production)
+    MCP_BRASIL_URL     — mcp-brasil server URL (required)
     MCP_CONNECTION_ID  — Foundry project connection name for MCP auth (optional)
 
 Prerequisites:
@@ -27,9 +27,7 @@ import os
 import sys
 from typing import NoReturn
 
-DEFAULT_ENDPOINT = "https://agent-brasil-resource.services.ai.azure.com/api/projects/agent-brasil"
 DEFAULT_MODEL = "gpt-4o"
-DEFAULT_MCP_URL = "https://mcp-brasil.purplepond-78f67485.eastus2.azurecontainerapps.io/mcp"
 
 AGENT_NAME = "agente-brasil"
 
@@ -67,9 +65,9 @@ def cmd_create(args: argparse.Namespace) -> None:
     from azure.ai.projects.models import MCPTool, PromptAgentDefinition
     from azure.identity import DefaultAzureCredential
 
-    endpoint = _get_env("PROJECT_ENDPOINT", DEFAULT_ENDPOINT)
+    endpoint = _get_env("PROJECT_ENDPOINT")
     model = _get_env("MODEL_DEPLOYMENT", DEFAULT_MODEL)
-    mcp_url = _get_env("MCP_BRASIL_URL", DEFAULT_MCP_URL)
+    mcp_url = _get_env("MCP_BRASIL_URL")
     connection_id = os.environ.get("MCP_CONNECTION_ID")
 
     mcp_kwargs: dict[str, object] = {
