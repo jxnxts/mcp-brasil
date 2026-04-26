@@ -18,8 +18,8 @@ Este documento descreve, fonte por fonte, a licença declarada e as restrições
 | Saúde (DataSUS, Imunização, ANVISA, DENASUS) | **CRÍTICO** | LGPD art. 11 §4 veda comunicação para vantagem econômica |
 | Eleitoral (TSE + Meta) | **ALTO** | Lei 9.504/97; Res. TSE 23.732/2024; Meta API limitada |
 | Judicial (DataJud, jurisprudência) | **ALTO** | Res. CNJ 446/2022 — chave de acesso, redistribuição vedada |
-| Educação microdados (INEP) | **ALTO** | INEP removeu microdados públicos em 2022 (LGPD) |
-| Segurança Pública (Atlas Violência, FBSP) | **ALTO** | Licença restritiva — sem uso comercial, sem derivadas |
+| Educação microdados (INEP) | Médio | Snapshot 2023 (pós-LGPD); validar amostra para confirmar anonimização |
+| Segurança Pública (Atlas Violência API, FBSP metadados) | Baixo | API REST oficial IPEA + DSpace metadados FBSP. Restrição se aplica ao PDF do Atlas, não à API. |
 | Transparência Federal (CGU/Transparência) | Baixo | Open data; uso comercial permitido com atribuição |
 | Geografia/Estatística (IBGE) | Baixo | Open data com atribuição |
 | Economia (BACEN, IPEA) | Baixo | Open data; algumas séries com atribuição |
@@ -134,16 +134,19 @@ Este documento descreve, fonte por fonte, a licença declarada e as restrições
 ### 4.1. `inep` (REST) e datasets `inep_enem`, `inep_censo_escolar`
 
 - **Origem**: Instituto Nacional de Estudos e Pesquisas Educacionais Anísio Teixeira
-- **Histórico crítico**: em 2022, INEP **REMOVEU os microdados de ENEM e Censo Escolar do acesso público** por exigência da LGPD. Acesso passou a ser via SEDAP (Serviço de Acesso a Dados Protegidos), com cadastro e termo de compromisso.
-- **Implicação**: datasets `inep_enem` e `inep_censo_escolar` deste projeto podem estar utilizando snapshots PRÉ-2022 (dados retirados de circulação) ou versões reformatadas (anonimizadas).
+- **Snapshot atual**: ano 2023, baixado de URLs oficiais ativas:
+  - `https://download.inep.gov.br/microdados/microdados_enem_2023.zip`
+  - `https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_2023.zip`
+- **Histórico**: em 2022, INEP removeu microdados do acesso público por exigência da LGPD; em 2024 retomou publicação em formato anonimizado pós-LGPD. O snapshot 2023 deste projeto é compatível com a retomada pós-LGPD.
+- **Salvaguarda no código**: a constante `COLUNAS_DISTINCT_PERMITIDAS` em `datasets/inep_enem/constants.py` whitelista apenas categorias agregadas (UF, sexo, faixa etária, raça, escola) — **não expõe** colunas com PII (`NU_INSCRICAO`, nome, CPF).
+- **Para SEDAP**: pesquisas formais com microdados não-anonimizados (ex.: rastreio longitudinal por candidato) devem usar o Serviço de Acesso a Dados Protegidos do INEP — fora do escopo deste servidor.
 
 **Ação recomendada AO TITULAR DO PROJETO:**
-1. Verificar a origem (URL, snapshot date) dos arquivos baixados pelos datasets `inep_enem` e `inep_censo_escolar`
-2. Se forem versões pré-2022 não anonimizadas, **REMOVER do projeto** e substituir por acesso via SEDAP
-3. Se forem versões oficiais pós-LGPD, manter atribuição clara
+- Validar 1 amostra do ZIP 2023 e listar todas as colunas do CSV — confirmar ausência de `NU_INSCRICAO_ENEM`, nome do candidato, CPF e quaisquer chaves diretas de re-identificação.
+- Se a confirmação for OK, **manter sem mudança**; o disclaimer abaixo aplica-se em estado normal.
 
-**Disclaimer obrigatório (até verificação):**
-> ⚠️ Verificação de conformidade pendente. INEP removeu microdados públicos em 2022 por LGPD. **NÃO usar dados deste módulo até confirmar origem.** Pesquisas formais devem usar SEDAP/INEP.
+**Disclaimer obrigatório:**
+> Microdados ENEM e Censo Escolar (snapshot 2023) são versão pós-LGPD do INEP, com colunas anonimizadas. **VEDADO** tentar re-identificação de indivíduos por cruzamento com outras bases (LGPD art. 12, parágrafo único). Atribuição: INEP.
 
 ### 4.2. `fnde` — repasses, merenda, PNATE
 
@@ -154,26 +157,27 @@ Este documento descreve, fonte por fonte, a licença declarada e as restrições
 
 ## 5. Segurança Pública — RISCO ALTO
 
-### 5.1. `atlas_violencia` — Atlas da Violência (IPEA + FBSP)
+### 5.1. `atlas_violencia` — Atlas da Violência (IPEA — API REST)
 
-- **Origem**: Instituto de Pesquisa Econômica Aplicada + Fórum Brasileiro de Segurança Pública
-- **Licença**: **PROIBIDO uso comercial e obras derivadas**. Reprodução permitida apenas para uso educacional/informativo, com atribuição.
+- **Origem**: API REST oficial do IPEA — `https://www.ipea.gov.br/atlasviolencia/api/v1`
+- **Importante**: esta feature consome a **API estatística oficial do IPEA**, não republica o relatório/livro Atlas da Violência (que é obra autoral protegida do IPEA + FBSP, com restrições para uso comercial e derivadas).
+- **Licença da API**: dados estatísticos abertos do IPEA, sob LAI; atribuição obrigatória.
+- **Distinção crítica**: a vedação de uso comercial e obras derivadas se aplica ao **PDF do Atlas anual** (relatório, gráficos, narrativa), não às séries históricas estatísticas servidas pela API.
 
-**Conflito direto com licença MIT do código.**
+**Disclaimer obrigatório:**
+> Dados estatísticos do Atlas da Violência via API oficial do IPEA. Para o **relatório anual do Atlas (PDF)** vigora licença restritiva (sem comercial, sem derivadas) — busque o documento oficial para citação institucional. Atribuição: IPEA / Atlas da Violência.
 
-**Ação recomendada AO TITULAR DO PROJETO:**
-- Avaliar **remoção** desta feature, OU
-- Restringir programaticamente: tool retorna apenas links para o Atlas oficial, não os dados em si, OR
-- Buscar autorização escrita de IPEA + FBSP
+**Ação recomendada (não bloqueante):**
+- Idealmente, contatar IPEA para confirmação por escrito dos termos da API (uso comercial e derivadas baseadas em séries estatísticas).
 
-**Disclaimer obrigatório (enquanto presente):**
-> Atlas da Violência é obra protegida do IPEA e Fórum Brasileiro de Segurança Pública. **VEDADO uso comercial e criação de obras derivadas.** Reprodução apenas para fins educativos/informativos com atribuição completa: "Atlas da Violência [ano] — IPEA / Fórum Brasileiro de Segurança Pública".
+### 5.2. `forum_seguranca` — Anuário FBSP (DSpace API — só metadados)
 
-### 5.2. `forum_seguranca` — Anuário FBSP
+- **Origem**: API DSpace pública do Fórum Brasileiro de Segurança Pública — `https://publicacoes.forumseguranca.org.br/server/api`
+- **Escopo da feature**: lista metadados de publicações (título, autor, comunidade, link de download). **Não baixa, processa, transforma ou republica o conteúdo das publicações** — atua como índice de busca.
+- **Licença das publicações em si**: variável por documento; o FBSP geralmente protege seus relatórios (Anuário, etc.) com restrições para uso comercial. Mas isto se aplica ao consumo da publicação, **não à indexação de metadados**.
 
-- **Origem**: Fórum Brasileiro de Segurança Pública (entidade privada)
-- **Licença**: similar ao Atlas — restritiva. Verificar termos por publicação.
-- **Risco igual ao 5.1**
+**Disclaimer obrigatório:**
+> Esta tool retorna apenas metadados (título, autor, link). Para acessar o conteúdo de qualquer publicação, baixe diretamente do FBSP e respeite os termos específicos de cada documento. Atribuição: Fórum Brasileiro de Segurança Pública.
 
 ### 5.3. `sinesp` — SINESP/MJSP
 
