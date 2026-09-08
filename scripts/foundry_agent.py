@@ -100,7 +100,7 @@ def cmd_test(args: argparse.Namespace) -> None:
     from azure.ai.projects import AIProjectClient
     from azure.identity import DefaultAzureCredential
 
-    endpoint = _get_env("PROJECT_ENDPOINT", DEFAULT_ENDPOINT)
+    endpoint = _get_env("PROJECT_ENDPOINT")
     question = args.question or "Qual é a população atual do Brasil segundo o IBGE?"
 
     with (
@@ -152,7 +152,7 @@ def cmd_delete(args: argparse.Namespace) -> None:
     from azure.ai.projects import AIProjectClient
     from azure.identity import DefaultAzureCredential
 
-    endpoint = _get_env("PROJECT_ENDPOINT", DEFAULT_ENDPOINT)
+    endpoint = _get_env("PROJECT_ENDPOINT")
     name = args.name or AGENT_NAME
 
     with (
